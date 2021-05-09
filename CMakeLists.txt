@@ -42,7 +42,7 @@ get_filename_component(hw_proto_path "${hw_proto}" PATH)
 # Generated sources
 set(hw_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/parkingspaces.pb.cc")
 set(hw_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/parkingspaces.pb.h")
-set(hw_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/parkingspaces.grpc.pb.cc" database/SQLDatabase.cpp database/SQLDatabase.h)
+set(hw_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/parkingspaces.grpc.pb.cc")
 set(hw_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/parkingspaces.grpc.pb.h")
 
 add_custom_command(
@@ -58,7 +58,7 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-add_executable(Raspberry main.cpp database/database.h ${hw_proto_srcs}  ${hw_grpc_srcs})
+add_executable(Raspberry main.cpp database/database.h database/SQLDatabase.cpp database/SQLDatabase.h ${hw_proto_srcs}  ${hw_grpc_srcs} server/parkingspacesimpl.cpp server/parkingspacesimpl.h server/parkingnotifications.cpp server/parkingnotifications.h)
 target_link_libraries(Raspberry ${SQLite3_LIBRARIES} ${_REFLECTION}
         ${_GRPC_GRPCPP}
         ${_PROTOBUF_LIBPROTOBUF})

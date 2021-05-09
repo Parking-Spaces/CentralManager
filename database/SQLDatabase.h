@@ -16,10 +16,27 @@ public:
 
     ~SQLDatabase();
 
+private:
+    void createTable();
+
 public:
     void insertSpace(unsigned int spaceID, std::string section) override;
 
-    void updateSpaceState(unsigned int spaceID, SpaceStates state) override;
+    std::unique_ptr<std::vector<SpaceState>> fetchAllSpaceStates() override;
+
+    SpaceState getStateForSpace(unsigned int spaceID) override;
+
+    /**
+     * Update the state of a space to a state and a current occupant
+     * @param spaceID
+     * @param state
+     * @param licensePlate
+     */
+    void updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) override;
+
+    int getReservationForLicensePlate(std::string licensePlate) override;
+
+    int getSpaceOccupiedByLicensePlate(std::string licensePlate) override;
 
     bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) override;
 
