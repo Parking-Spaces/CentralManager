@@ -23,6 +23,10 @@
 
 #define MAKE_RESERVATION "UPDATE SPACES SET STATE='RESERVED', OCCUPANT=? WHERE PID=? AND STATE='FREE';"
 
+#define SELECT_RESERVATION_FOR "SELECT * FROM SPACES WHERE OCCUPANT=? AND STATE='RESERVED'"
+
+#define SELECT_SPACE_OCCUPIED_BY "SELECT * FROM SPACES WHERE OCCUPANT=? AND STATE='OCCUPIED'"
+
 #define DELETE_RESERVATION_FOR_SPACE "UPDATE SPACES SET STATE='FREE' WHERE PID=?"
 
 #define DELETE_RESERVATION_FOR_PLATE "UPDATE SPACES SET STATE='FREE', OCCUPANT_PLATE=NULL WHERE OCCUPANT_PLATE=? AND STATE='RESERVED'"
@@ -45,6 +49,14 @@ std::string stateToString(SpaceStates state) {
         default:
             return "FREE";
     }
+}
+
+SpaceStates stateFromString(std::string state) {
+    if (state == "OCCUPIED") return OCCUPIED;
+    else if (state == "FREE") return FREE;
+    else if (state == "RESERVED") return RESERVED;
+
+    return FREE;
 }
 
 void SQLDatabase::createTable() {
@@ -147,15 +159,83 @@ bool SQLDatabase::cancelReservationsFor(std::string licensePlate) {
 }
 
 std::unique_ptr<std::vector<SpaceState>> SQLDatabase::fetchAllSpaceStates() {
-    return std::make_unique<std::vector<SpaceState>>();
+
+    auto states = std::make_unique<std::vector<SpaceState>>();
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, SELECT_SPACES, strlen(SELECT_SPACES), &stmt, nullptr);
+
+    while (true) {
+        int res = sqlite3_step(stmt);
+
+        if (res == SQLITE_DONE) break;
+        else if (res != SQLITE_ROW) {
+            std::cout << "Failed to read row from DB" << std::endl;
+            break;
+        }
+
+        std::string state((const char *) sqlite3_column_text(stmt, 2));
+
+        states->emplace_back(sqlite3_column_int(stmt, 0),
+                             stateFromString(state),
+                             std::string((const char *) sqlite3_column_text(stmt, 1)),
+                             std::string((const char *) sqlite3_column_text(stmt, 3)));
+    }
+
+    sqlite3_finalize(stmt);
+
+    return std::move(states);
 }
 
 SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
-    return SpaceState(0, FREE, "", "");
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, SELECT_SPACE, strlen(SELECT_SPACE), &stmt, nullptr);
+
+    sqlite3_bind_int(stmt, 1, spaceID);
+
+    int res = sqlite3_step(stmt);
+
+    if (res != SQLITE_ROW) {
+        std::cout << "No space by that ID" << std::endl;
+
+        return SpaceState(spaceID, FREE, "", "");
+    }
+
+    std::string section((const char *) sqlite3_column_text(stmt, 1)),
+            occupant((const char *) sqlite3_column_text(stmt, 3));
+
+    SpaceStates state = stateFromString(std::string((const char *) sqlite3_column_text(stmt,2)));
+
+    sqlite3_finalize(stmt);
+
+    return SpaceState(spaceID, state, section, occupant);
 }
 
 int SQLDatabase::getReservationForLicensePlate(std::string licensePlate) {
-    return 0;
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, SELECT_RESERVATION_FOR, strlen(SELECT_RESERVATION_FOR), &stmt, nullptr);
+
+    sqlite3_bind_text(stmt, 0, licensePlate.c_str(), licensePlate.length(), nullptr);
+
+    int res = sqlite3_step(stmt);
+
+    if (res != SQLITE_ROW) {
+
+        sqlite3_finalize(stmt);
+
+        return -1;
+    }
+
+    int spaceID = sqlite3_column_int(stmt, 0);
+
+    sqlite3_finalize(stmt);
+
+    return spaceID;
 }
 
 int SQLDatabase::getSpaceOccupiedByLicensePlate(std::string licensePlate) {

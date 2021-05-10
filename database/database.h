@@ -6,18 +6,18 @@
 class SpaceState {
 
 private:
-    int spaceID;
+    unsigned int spaceID;
 
     SpaceStates state;
 
     std::string section, occupant;
 
 public:
-    SpaceState(int spaceId, SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
+    SpaceState(unsigned int spaceId, SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
             spaceId), state(state), section(section), occupant(occupant) {}
 
 public:
-    int getSpaceId() const {
+    unsigned int getSpaceId() const {
         return spaceID;
     }
 
