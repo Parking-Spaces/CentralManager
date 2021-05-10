@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(Raspberry)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 find_package(SQLite3)
 
 include_directories(${SQLite3_INCLUDE_DIRS})
@@ -59,6 +59,13 @@ add_custom_command(
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 add_executable(Raspberry main.cpp database/database.h database/SQLDatabase.cpp database/SQLDatabase.h ${hw_proto_srcs}  ${hw_grpc_srcs} server/parkingspacesimpl.cpp server/parkingspacesimpl.h server/parkingnotifications.cpp server/parkingnotifications.h)
+
+add_executable(RaspberryTest testclient/main.cpp ${hw_proto_srcs}  ${hw_grpc_srcs})
+
+target_link_libraries(RaspberryTest ${SQLite3_LIBRARIES} ${_REFLECTION}
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF})
+
 target_link_libraries(Raspberry ${SQLite3_LIBRARIES} ${_REFLECTION}
         ${_GRPC_GRPCPP}
         ${_PROTOBUF_LIBPROTOBUF})

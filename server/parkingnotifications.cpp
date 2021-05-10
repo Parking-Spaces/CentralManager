@@ -5,7 +5,6 @@ enum CallStatus {
     CREATE, LISTENING, FINISH
 };
 
-
 class CallData {
 public:
     CallData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq) : service_(service),
@@ -13,19 +12,7 @@ public:
                                                                                              status_(CREATE) {}
 
 public:
-    void Proceed () {
-
-        if (status_ == CREATE) {
-            requestResponder();
-
-            status_ = LISTENING;
-        } else if (status_ == LISTENING) {
-
-        }
-
-    }
-
-    virtual void requestResponder() = 0;
+    virtual void Proceed() = 0;
 
 protected:
     // The means of communication with the gRPC runtime for an asynchronous
@@ -41,23 +28,70 @@ protected:
     CallStatus status_;  // The current serving state.
 };
 
+
 class ParkingSpacesData : public CallData {
 private:
     grpc::ServerAsyncWriter<ParkingSpaceStatus> responder_;
 
     ParkingSpacesRq request;
 
+    Subscribers<ParkingSpaceStatus> *subs;
+
+    int count;
+
 public:
-    ParkingSpacesData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq) : CallData(service,
-                                                                                                               cq),
-                                                                                                      responder_(
-                                                                                                              &ctx_) {
+    ParkingSpacesData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
+                      Subscribers<ParkingSpaceStatus> *subscribers) : CallData(service,
+                                                                               cq),
+                                                                      responder_(
+                                                                              &ctx_),
+                                                                      count(0),
+                                                                      subs(subscribers) {
         Proceed();
     }
 
 public:
-    void requestResponder() override {
-        service_->RequestsubscribeToParkingStates(&ctx_, &request, &responder_, cq_, cq_, this);
+    void Proceed() override {
+
+        if (status_ == CREATE) {
+
+            std::cout << "Waiting for parking state" << std::endl;
+
+            service_->RequestsubscribeToParkingStates(&ctx_, &request, &responder_, cq_, cq_, this);
+
+            this->status_ = LISTENING;
+        } else if (status_ == LISTENING) {
+
+            if (count == 0) {
+
+                new ParkingSpacesData(service_, cq_, subs);
+
+                auto sub = std::make_unique<Subscriber<ParkingSpaceStatus>>(&responder_, this, &ctx_);
+
+                subs->registerSubscriber(std::move(sub));
+
+                ParkingSpaceStatus status;
+
+                status.set_spaceid(1);
+                status.set_spacesection("A");
+                status.set_spacestate(FREE);
+
+                responder_.Write(status, this);
+
+                count++;
+
+            } else {
+                status_ = FINISH;
+            }
+        } else {
+
+            responder_.Finish(grpc::Status::OK, this);
+
+            std::cout << "Finished client " << std::endl;
+
+            delete this;
+        }
+
     }
 
 };
@@ -68,15 +102,55 @@ private:
 
     ParkingSpaceReservation request;
 
+    Subscribers<ReserveStatus> *subs;
+
+    int count;
+
 public:
-    void requestResponder() override {
-        service_->RequestsubscribeToReservationState(&ctx_, &request, &responder_, cq_, cq_, this);
+    ReservationSpaceData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
+                         Subscribers<ReserveStatus> *subs) :
+            CallData(service, cq),
+            responder_(
+                    &ctx_),
+            count(0),
+            subs(subs) {
+        Proceed();
+    }
+
+public:
+    void Proceed() override {
+        if (status_ == CREATE) {
+            std::cout << "Waiting for reservation state" << std::endl;
+
+            service_->RequestsubscribeToReservationState(&ctx_, &request, &responder_, cq_, cq_, this);
+
+            this->status_ = LISTENING;
+        } else if (status_ == LISTENING) {
+
+            if (count == 0) {
+
+                new ReservationSpaceData(service_, cq_, subs);
+
+                count++;
+            } else {
+                status_ = FINISH;
+            }
+
+        } else {
+
+            responder_.Finish(grpc::Status::OK, this);
+
+            delete this;
+        }
     }
 };
 
 void ParkingNotificationsImpl::Run() {
 
     std::string server_address("0.0.0.0:50051");
+
+    this->parkingSpaceSubscribers = std::make_unique<Subscribers<ParkingSpaceStatus>>();
+    this->reservationSubscribers = std::make_unique<Subscribers<ReserveStatus>>();
 
     /*   std::ifstream parserequestfile("/root/cgangwar/certs/key.pem");
       std::stringstream buffer;
@@ -114,7 +188,8 @@ void ParkingNotificationsImpl::Run() {
 void ParkingNotificationsImpl::HandleRpcs() {
 
     // Spawn a new CallData instance to serve new clients
-    new ParkingSpacesData(&service_, cq_.get());
+    new ParkingSpacesData(&service_, cq_.get(), parkingSpaceSubscribers.get());
+    new ReservationSpaceData(&service_, cq_.get(), reservationSubscribers.get());
     void *tag;  // uniquely identifies a request.
     bool ok;
 
