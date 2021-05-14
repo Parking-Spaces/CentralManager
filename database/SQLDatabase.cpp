@@ -10,8 +10,8 @@
  * Or even reserve a space and park somewhere else.
  */
 #define CREATE_PARKING_SPACES_TABLE "CREATE TABLE IF NOT EXISTS SPACES(PID INT PRIMARY KEY, SECTION varchar(20) NOT NULL,"\
-                                    " STATE ENUM(FREE, RESERVED, OCCUPIED) DEFAULT FREE, OCCUPANT_PLATE varchar(20) DEFAULT NULL," \
-                                    "UNIQUE(OCCUPANT));"
+                                    " STATE INTEGER DEFAULT 0, OCCUPANT_PLATE varchar(20) DEFAULT NULL," \
+                                    "UNIQUE(OCCUPANT_PLATE));"
 
 #define INSERT_SPACE "INSERT INTO SPACES(PID, SECTION) values(?, ?)"
 
@@ -37,32 +37,17 @@
 
 #define INSERT_LOG_ENTRY "INSERT INTO ENTRANCE_LOG (PLATE, LOG_TYPE) values(?, ?);"
 
-std::string stateToString(SpaceStates state) {
-    switch (state) {
-        case OCCUPIED:
-            return "OCCUPIED";
-        case FREE:
-            return "FREE";
-        case RESERVED:
-            return "RESERVED";
-
-        default:
-            return "FREE";
-    }
-}
-
-SpaceStates stateFromString(std::string state) {
-    if (state == "OCCUPIED") return OCCUPIED;
-    else if (state == "FREE") return FREE;
-    else if (state == "RESERVED") return RESERVED;
-
-    return FREE;
-}
-
 void SQLDatabase::createTable() {
 
-//    sqlite3_exec(this->db, CREATE_PARKING_SPACES_TABLE);
+    char *errMsg = 0;
 
+    int rs = sqlite3_exec(this->db, CREATE_PARKING_SPACES_TABLE, nullptr, nullptr, &errMsg);
+
+    if (rs != SQLITE_OK) {
+        std::cout << errMsg << std::endl;
+    } else {
+        std::cout << "Created the table" << std::endl;
+    }
 }
 
 SQLDatabase::SQLDatabase() : db(nullptr) {
@@ -109,9 +94,7 @@ void SQLDatabase::updateSpaceState(unsigned int spaceID, SpaceStates state, std:
 
     sqlite3_prepare_v2(this->db, UPDATE_SPACE, strlen(UPDATE_SPACE), &stmt, nullptr);
 
-    std::string stateString = stateToString(state);
-
-    sqlite3_bind_text(stmt, 1, stateString.c_str(), stateString.length(), nullptr);
+    sqlite3_bind_int(stmt, 1, state);
     sqlite3_bind_text(stmt, 2, licensePlate.c_str(), licensePlate.length(), nullptr);
     sqlite3_bind_int(stmt, 3, spaceID);
 
@@ -170,17 +153,24 @@ std::unique_ptr<std::vector<SpaceState>> SQLDatabase::fetchAllSpaceStates() {
         int res = sqlite3_step(stmt);
 
         if (res == SQLITE_DONE) break;
+
         else if (res != SQLITE_ROW) {
             std::cout << "Failed to read row from DB" << std::endl;
             break;
         }
 
-        std::string state((const char *) sqlite3_column_text(stmt, 2));
+        auto statement = (const char *) sqlite3_column_text(stmt, 3);
+
+        std::string occupant;
+
+        if (statement != nullptr) {
+            occupant = std::string (statement);
+        }
 
         states->emplace_back(sqlite3_column_int(stmt, 0),
-                             stateFromString(state),
+                             static_cast<SpaceStates>(sqlite3_column_int(stmt, 2)),
                              std::string((const char *) sqlite3_column_text(stmt, 1)),
-                             std::string((const char *) sqlite3_column_text(stmt, 3)));
+                             occupant);
     }
 
     sqlite3_finalize(stmt);
@@ -207,7 +197,7 @@ SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
     std::string section((const char *) sqlite3_column_text(stmt, 1)),
             occupant((const char *) sqlite3_column_text(stmt, 3));
 
-    SpaceStates state = stateFromString(std::string((const char *) sqlite3_column_text(stmt,2)));
+    auto state = static_cast<SpaceStates>(sqlite3_column_int(stmt, 2));
 
     sqlite3_finalize(stmt);
 

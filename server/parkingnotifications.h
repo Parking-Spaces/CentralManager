@@ -64,16 +64,17 @@ class ParkingNotificationsImpl final {
 private:
 
     ParkingNotifications::AsyncService service_;
-    std::unique_ptr<grpc::Server> server_;
     std::unique_ptr<grpc::ServerCompletionQueue> cq_;
 
     std::unique_ptr<Subscribers<ParkingSpaceStatus>> parkingSpaceSubscribers;
     std::unique_ptr<Subscribers<ReserveStatus>> reservationSubscribers;
 
 public:
-    explicit ParkingNotificationsImpl() = default;
+    ParkingNotificationsImpl();
 
-    void Run();
+    void registerService(grpc::ServerBuilder &builder);
+
+    void run();
 
     void publishParkingSpaceUpdate(ParkingSpaceStatus &status);
 

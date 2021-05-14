@@ -1,24 +1,37 @@
 #include <iostream>
-#include "server/parkingnotifications.h"
-#include <thread>
-
-void initParkingNotifications(ParkingNotificationsImpl *impl) {
-
-    impl->Run();
-
-}
+#include "server/server.h"
+#include "database/SQLDatabase.h"
 
 int main() {
     std::cout << "Hello, World!" << std::endl;
 
-    ParkingNotificationsImpl impl;
+    auto database = std::make_shared<SQLDatabase>();
 
-    std::thread parkingNotif(initParkingNotifications, &impl);
+/*    char starting = 'A';
 
-    std::cout << "Cest fini" << std::endl;
+    int id = 0;
 
-    sendNotif.join();
-    parkingNotif.join();
+    for (int sec = 0; sec < 26; sec++) {
+
+        auto section = std::string(1, starting + sec);
+
+        for (int i = 0; i < 26; i++) {
+            database->insertSpace(id++, section);
+
+            std::cout << "Inserted new space " << i << " section " << section << std::endl;
+        }
+    }*/
+
+    ParkingServer sv(database);
+
+    /*auto results = database->fetchAllSpaceStates();
+
+    for (const auto &spaceState : *results) {
+        std::cout << "Space " << spaceState.getSpaceId() << " from section " << spaceState.getSection() <<
+        " is " << spaceState.getState() << std::endl;
+    }
+
+    std::cout << "Cest fini" << std::endl;*/
 
     return 0;
 }

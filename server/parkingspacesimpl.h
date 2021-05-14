@@ -8,10 +8,10 @@
 class ParkingSpacesImpl : public ParkingSpaces::Service {
 
 private:
-    std::unique_ptr<Database> db;
+    std::shared_ptr<Database> db;
 
 public:
-    ParkingSpacesImpl(std::unique_ptr<Database> db);
+    ParkingSpacesImpl(std::shared_ptr<Database> db);
 
     ~ParkingSpacesImpl() override;
 
@@ -22,7 +22,7 @@ public:
                                        ::ReservationResponse *response) override;
 
     grpc::Status cancelSpaceReservation(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
-                                        ::ReservationResponse *response) override;
+                                        ::ReservationCancelResponse *response) override;
 
 };
 

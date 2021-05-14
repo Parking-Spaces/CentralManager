@@ -112,9 +112,11 @@ protected:
     int count;
 
     IsCancelledCallback _isCancelled;
+
     // The means of communication with the gRPC runtime for an asynchronous
     // server.
     ParkingNotifications::AsyncService *service_;
+
     // The producer-consumer queue where for asynchronous server notifications.
     grpc::ServerCompletionQueue *cq_;
     // Context for the rpc, allowing to tweak aspects of it such as the use
@@ -182,43 +184,21 @@ public:
     }
 };
 
-void ParkingNotificationsImpl::Run() {
+ParkingNotificationsImpl::ParkingNotificationsImpl() :
+parkingSpaceSubscribers(std::make_unique<Subscribers<ParkingSpaceStatus>>()),
+reservationSubscribers(std::make_unique<Subscribers<ReserveStatus>>()) {}
 
-    std::string server_address("0.0.0.0:50051");
+void ParkingNotificationsImpl::registerService(grpc::ServerBuilder &builder) {
 
-    this->parkingSpaceSubscribers = std::make_unique<Subscribers<ParkingSpaceStatus>>();
-    this->reservationSubscribers = std::make_unique<Subscribers<ReserveStatus>>();
-
-    /*   std::ifstream parserequestfile("/root/cgangwar/certs/key.pem");
-      std::stringstream buffer;
-      buffer << parserequestfile.rdbuf();
-      std::string key = buffer.str();
-
-      std::ifstream requestfile("/root/cgangwar/certs/cert.pem");
-      buffer << requestfile.rdbuf();
-      std::string cert = buffer.str();
-
-     grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key, cert};
-
-     grpc::SslServerCredentialsOptions ssl_opts;
-     ssl_opts.pem_root_certs = "";
-     ssl_opts.pem_key_cert_pairs.push_back(pkcp);
-   */
-
-    grpc::ServerBuilder builder;
-    // Listen on the given address without any authentication mechanism.
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     // Register "service_" as the instance through which we'll communicate with
     // clients. In this case it corresponds to an *asynchronous* service.
     builder.RegisterService(&service_);
     // Get hold of the completion queue used for the asynchronous communication
     // with the gRPC runtime.
     cq_ = builder.AddCompletionQueue();
-    // Finally assemble the server.
-    server_ = builder.BuildAndStart();
-    std::cout << "Server listening on " << server_address << std::endl;
+}
 
-    // Proceed to the server's main loop.
+void ParkingNotificationsImpl::run() {
     HandleRpcs();
 }
 
