@@ -5,44 +5,21 @@
 #include <grpc/support/log.h>
 #include <grpcpp/grpcpp.h>
 
-template<typename T>
-class Subscriber {
-
-public:
-    Subscriber(grpc::ServerAsyncWriter<T> *writer, void *tag, grpc::ServerContext *context) {
-        m_writer = writer;
-        m_tag = tag;
-        m_context = context;
-    }
-
-    bool isAlive() {
-        return !m_context->IsCancelled();
-    }
-
-    void postToUser(const T &data) {
-        m_writer->Write(data, m_tag);
-    }
-
-private:
-
-    grpc::ServerAsyncWriter<T> *m_writer;
-    void *m_tag;
-    grpc::ServerContext *m_context;
-
-};
+template<class T>
+class CallData;
 
 template<typename T>
 class Subscribers {
 
 private:
-    std::set<std::unique_ptr<Subscriber<T>>> registeredSubscribers;
+    std::set<CallData<T> *> registeredSubscribers;
 
     std::mutex lock;
 public:
     explicit Subscribers() = default;
 
 public:
-    void registerSubscriber(std::unique_ptr<Subscriber<T>> sub) {
+    void registerSubscriber(CallData<T> *sub) {
         std::unique_lock<std::mutex> acqLock(this->lock);
 
         registeredSubscribers.insert(std::move(sub));
@@ -58,25 +35,28 @@ public:
         while (start != end) {
 
             if (*start) {
-                if ((*start)->isAlive()) {
-                    (*start)->postToUser(message);
+                if (!(*start)->isCancelled()) {
+                    (*start)->write(message, *start);
                 } else {
+
+                    std::cout << "Subscriber disconnected" << std::endl;
+
                     start = registeredSubscribers.erase(start);
+                    end = registeredSubscribers.end();
                     continue;
                 }
             }
 
             start++;
         }
-
-        for (const auto &sub : registeredSubscribers) {
-            if (sub->isAlive()) {
-                sub->postToUser(message);
-            } else {
-                registeredSubscribers.erase(sub);
-            }
-        }
     }
+};
+
+class RPCContextBase {
+public:
+    virtual void Proceed() = 0;
+
+    virtual ~RPCContextBase() = default;
 };
 
 class ParkingNotificationsImpl final {
@@ -94,6 +74,10 @@ public:
     explicit ParkingNotificationsImpl() = default;
 
     void Run();
+
+    void publishParkingSpaceUpdate(ParkingSpaceStatus &status);
+
+    void publishReservationUpdate(ReserveStatus &status);
 
 private:
     void HandleRpcs();
