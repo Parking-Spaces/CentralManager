@@ -32,11 +32,20 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
 
     response->set_spaceid(request->spaceid());
 
+    SpaceState state = this->db->getStateForSpace(request->spaceid());
+
     if (res) {
         response->set_response(ReserveState::SUCCESSFUL);
-    } else {
-        SpaceState state = this->db->getStateForSpace(request->spaceid());
 
+        ParkingSpaceStatus status;
+
+        status.set_spaceid(state.getSpaceId());
+        status.set_spacesection(state.getSection());
+        status.set_spacestate(state.getState());
+
+        notifications->publishParkingSpaceUpdate(status);
+
+    } else {
         if (state.getState() == OCCUPIED) {
             response->set_response(ReserveState::FAILED_SPACE_OCCUPIED);
         } else if (state.getState() == RESERVED) {
@@ -53,10 +62,29 @@ grpc::Status
 ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
                                           ::ReservationCancelResponse *response) {
 
+    SpaceState state = this->db->getReservationForLicensePlate(request->licenceplate());
+
     bool res = this->db->cancelReservationsFor(request->licenceplate());
 
     if (res) {
         response->set_cancelstate(ReserveCancelState::CANCELLED);
+
+        ParkingSpaceStatus status;
+
+        status.set_spaceid(state.getSpaceId());
+        status.set_spacestate(state.getState());
+        status.set_spacesection(state.getSection());
+
+        this->notifications->publishParkingSpaceUpdate(status);
+
+        ReserveStatus reserveStatus;
+
+        reserveStatus.set_spaceid(state.getSpaceId());
+
+        reserveStatus.set_state(ReservationState::RESERVE_CANCELLED);
+
+        this->notifications->publishReservationUpdate(reserveStatus);
+
     } else {
         response->set_cancelstate(ReserveCancelState::NO_RESERVATION_FOR_PLATE);
     }
@@ -64,6 +92,7 @@ ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const 
     return grpc::Status::OK;
 }
 
-ParkingSpacesImpl::ParkingSpacesImpl(std::shared_ptr<Database> db) : db(std::move(db)) {
-
+ParkingSpacesImpl::ParkingSpacesImpl(std::shared_ptr<Database> db,
+                                     std::shared_ptr<ParkingNotificationsImpl> notification)
+        : db(std::move(db)), notifications(std::move(notification)) {
 }

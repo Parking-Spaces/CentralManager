@@ -56,6 +56,8 @@ public:
 
     virtual void onReady() = 0;
 
+    virtual bool shouldReceive(const Res &res) = 0;
+
     void Proceed() override {
         if (status_ == CREATE) {
 
@@ -148,6 +150,10 @@ public:
         new ParkingSpacesData(service_, cq_, subs);
     }
 
+    bool shouldReceive(const ParkingSpaceStatus &res) override {
+        return true;
+    }
+
     void onReady() override {
         ParkingSpaceStatus status;
 
@@ -178,6 +184,12 @@ public:
 
     void initializeNewRq() override {
         new ReservationSpaceData(service_, cq_, subs);
+    }
+
+    bool shouldReceive(const ReserveStatus &res) override {
+        if (res.spaceid() == request.spaceid()) return true;
+
+        return false;
     }
 
     void onReady() override {

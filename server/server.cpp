@@ -5,7 +5,10 @@ void startNotificationServer(ParkingNotificationsImpl *notif) {
     notif->run();
 }
 
-ParkingServer::ParkingServer(std::shared_ptr<Database> db) : spaces(db), notifications() {
+ParkingServer::ParkingServer(std::shared_ptr<Database> db) : notifications(
+        std::make_shared<ParkingNotificationsImpl>()),
+        spaces(std::make_shared<ParkingSpacesImpl>(db,
+                                                   notifications)) {
 
     grpc::ServerBuilder serverBuilder;
 
@@ -28,19 +31,19 @@ ParkingServer::ParkingServer(std::shared_ptr<Database> db) : spaces(db), notific
     // Listen on the given address without any authentication mechanism.
     serverBuilder.AddListeningPort(SERVER_IP, grpc::InsecureServerCredentials());
 
-    serverBuilder.RegisterService(&spaces);
+    serverBuilder.RegisterService(spaces.get());
 
-    notifications.registerService(serverBuilder);
+    notifications->registerService(serverBuilder);
 
     server = serverBuilder.BuildAndStart();
 
     startNotifications();
 
-    std::cout << "Server listening on IP: "  << SERVER_IP << std::endl;
+    std::cout << "Server listening on IP: " << SERVER_IP << std::endl;
 
     server->Wait();
 }
 
 void ParkingServer::startNotifications() {
-    this->notifThread = std::thread(startNotificationServer, &notifications);
+    this->notifThread = std::thread(startNotificationServer, notifications.get());
 }

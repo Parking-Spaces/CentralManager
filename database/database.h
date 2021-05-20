@@ -6,18 +6,18 @@
 class SpaceState {
 
 private:
-    unsigned int spaceID;
+    int spaceID;
 
     SpaceStates state;
 
     std::string section, occupant;
 
 public:
-    SpaceState(unsigned int spaceId, SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
+    SpaceState(int spaceId, SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
             spaceId), state(state), section(section), occupant(occupant) {}
 
 public:
-    unsigned int getSpaceId() const {
+    int getSpaceId() const {
         return spaceID;
     }
 
@@ -45,9 +45,9 @@ public:
 
     virtual void updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) = 0;
 
-    virtual int getReservationForLicensePlate(std::string licensePlate) = 0;
+    virtual SpaceState getReservationForLicensePlate(std::string licensePlate) = 0;
 
-    virtual int getSpaceOccupiedByLicensePlate(std::string licensePlate) = 0;
+    virtual SpaceState getSpaceOccupiedByLicensePlate(std::string licensePlate) = 0;
 
     virtual bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) = 0;
 

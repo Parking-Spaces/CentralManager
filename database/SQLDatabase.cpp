@@ -204,7 +204,7 @@ SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
     return SpaceState(spaceID, state, section, occupant);
 }
 
-int SQLDatabase::getReservationForLicensePlate(std::string licensePlate) {
+SpaceState SQLDatabase::getReservationForLicensePlate(std::string licensePlate) {
 
     sqlite3_stmt *stmt;
 
@@ -218,16 +218,68 @@ int SQLDatabase::getReservationForLicensePlate(std::string licensePlate) {
 
         sqlite3_finalize(stmt);
 
-        return -1;
+        SpaceState spstate{-1, SpaceStates::FREE, std::string(), std::string()};
+
+        return spstate;
     }
 
     int spaceID = sqlite3_column_int(stmt, 0);
 
+    auto statement = (const char *) sqlite3_column_text(stmt, 3);
+
+    std::string occupant;
+
+    if (statement != nullptr) {
+        occupant = std::string (statement);
+    }
+
+    auto spaceState = static_cast<SpaceStates>(sqlite3_column_int(stmt, 2));
+
+    SpaceState spaceInfo{spaceID, spaceState,
+                         std::string((const char *) sqlite3_column_text(stmt, 1)),
+                         occupant};
+
     sqlite3_finalize(stmt);
 
-    return spaceID;
+    return spaceInfo;
 }
 
-int SQLDatabase::getSpaceOccupiedByLicensePlate(std::string licensePlate) {
-    return 0;
+SpaceState SQLDatabase::getSpaceOccupiedByLicensePlate(std::string licensePlate) {
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, SELECT_SPACE_OCCUPIED_BY, strlen(SELECT_SPACE_OCCUPIED_BY), &stmt, nullptr);
+
+    sqlite3_bind_text(stmt, 0, licensePlate.c_str(), licensePlate.length(), nullptr);
+
+    int res = sqlite3_step(stmt);
+
+    if (res != SQLITE_ROW) {
+
+        sqlite3_finalize(stmt);
+
+        SpaceState spstate{-1, SpaceStates::FREE, std::string(), std::string()};
+
+        return spstate;
+    }
+
+    int spaceID = sqlite3_column_int(stmt, 0);
+
+    auto statement = (const char *) sqlite3_column_text(stmt, 3);
+
+    std::string occupant;
+
+    if (statement != nullptr) {
+        occupant = std::string(statement);
+    }
+
+    auto spaceState = static_cast<SpaceStates>(sqlite3_column_int(stmt, 2));
+
+    SpaceState spaceInfo{spaceID, spaceState,
+                         std::string((const char *) sqlite3_column_text(stmt, 1)),
+                         occupant};
+
+    sqlite3_finalize(stmt);
+
+    return spaceInfo;
 }

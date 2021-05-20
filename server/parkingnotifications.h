@@ -35,7 +35,7 @@ public:
         while (start != end) {
 
             if (*start) {
-                if (!(*start)->isCancelled()) {
+                if (!(*start)->isCancelled() && (*start)->shouldReceive(message)) {
                     (*start)->write(message, *start);
                 } else {
 

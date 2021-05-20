@@ -10,8 +10,8 @@
 class ParkingServer {
 
 private:
-    ParkingNotificationsImpl notifications;
-    ParkingSpacesImpl spaces;
+    std::shared_ptr<ParkingNotificationsImpl> notifications;
+    std::shared_ptr<ParkingSpacesImpl> spaces;
 
     std::thread notifThread;
 
@@ -24,11 +24,11 @@ private:
     void startNotifications();
 
     const ParkingNotificationsImpl &getNotifications() const {
-        return notifications;
+        return *notifications;
     }
 
     const ParkingSpacesImpl &getSpaces() const {
-        return spaces;
+        return *spaces;
     }
 
 };

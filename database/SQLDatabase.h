@@ -34,9 +34,9 @@ public:
      */
     void updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) override;
 
-    int getReservationForLicensePlate(std::string licensePlate) override;
+    SpaceState getReservationForLicensePlate(std::string licensePlate) override;
 
-    int getSpaceOccupiedByLicensePlate(std::string licensePlate) override;
+    SpaceState getSpaceOccupiedByLicensePlate(std::string licensePlate) override;
 
     bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) override;
 

@@ -2,16 +2,17 @@
 #define RASPBERRY_PARKINGSPACESIMPL_H
 
 #include "parkingspaces.grpc.pb.h"
-
 #include "../database/database.h"
+#include "parkingnotifications.h"
 
 class ParkingSpacesImpl : public ParkingSpaces::Service {
 
 private:
     std::shared_ptr<Database> db;
+    std::shared_ptr<ParkingNotificationsImpl> notifications;
 
 public:
-    ParkingSpacesImpl(std::shared_ptr<Database> db);
+    ParkingSpacesImpl(std::shared_ptr<Database> db, std::shared_ptr<ParkingNotificationsImpl> notifications);
 
     ~ParkingSpacesImpl() override;
 
