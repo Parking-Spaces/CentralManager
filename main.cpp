@@ -1,37 +1,20 @@
 #include <iostream>
+#include "conn_arduino/firebase_notifications.h"
 #include "server/server.h"
 #include "database/SQLDatabase.h"
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
-
     auto database = std::make_shared<SQLDatabase>();
 
-/*    char starting = 'A';
+    auto arduino_conn = std::make_shared<FirebaseNotifications>();
 
-    int id = 0;
+    auto sv = std::make_shared<ParkingServer>(database, arduino_conn);
 
-    for (int sec = 0; sec < 26; sec++) {
+    auto receiver = std::make_shared<FirebaseReceiver>(sv);
 
-        auto section = std::string(1, starting + sec);
+    arduino_conn->notifyArduino(2, true);
 
-        for (int i = 0; i < 26; i++) {
-            database->insertSpace(id++, section);
-
-            std::cout << "Inserted new space " << i << " section " << section << std::endl;
-        }
-    }*/
-
-    ParkingServer sv(database);
-
-    /*auto results = database->fetchAllSpaceStates();
-
-    for (const auto &spaceState : *results) {
-        std::cout << "Space " << spaceState.getSpaceId() << " from section " << spaceState.getSection() <<
-        " is " << spaceState.getState() << std::endl;
-    }
-
-    std::cout << "Cest fini" << std::endl;*/
+    sv->wait();
 
     return 0;
 }

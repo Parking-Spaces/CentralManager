@@ -45,6 +45,8 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
 
         notifications->publishParkingSpaceUpdate(status);
 
+        this->conn->notifyArduino(state.getSpaceId(), true);
+
     } else {
         if (state.getState() == OCCUPIED) {
             response->set_response(ReserveState::FAILED_SPACE_OCCUPIED);
@@ -85,6 +87,8 @@ ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const 
 
         this->notifications->publishReservationUpdate(reserveStatus);
 
+        this->conn->notifyArduino(state.getSpaceId(), false);
+
     } else {
         response->set_cancelstate(ReserveCancelState::NO_RESERVATION_FOR_PLATE);
     }
@@ -92,7 +96,9 @@ ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const 
     return grpc::Status::OK;
 }
 
+
 ParkingSpacesImpl::ParkingSpacesImpl(std::shared_ptr<Database> db,
-                                     std::shared_ptr<ParkingNotificationsImpl> notification)
-        : db(std::move(db)), notifications(std::move(notification)) {
-}
+                                     std::shared_ptr<ParkingNotificationsImpl> notification,
+                                     std::shared_ptr<ArduinoConnection> conn)
+        : db(std::move(db)), notifications(std::move(notification)),
+          conn(std::move(conn)) {}

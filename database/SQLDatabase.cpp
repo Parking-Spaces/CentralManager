@@ -88,7 +88,9 @@ void SQLDatabase::insertSpace(unsigned int spaceID, std::string section) {
 
 }
 
-void SQLDatabase::updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) {
+SpaceState SQLDatabase::updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) {
+
+    auto prevState = this->getStateForSpace(spaceID);
 
     sqlite3_stmt *stmt;
 
@@ -102,6 +104,7 @@ void SQLDatabase::updateSpaceState(unsigned int spaceID, SpaceStates state, std:
 
     sqlite3_finalize(stmt);
 
+    return prevState;
 }
 
 
@@ -130,11 +133,18 @@ bool SQLDatabase::cancelReservationsFor(std::string licensePlate) {
 
     sqlite3_stmt *stmt;
 
-    sqlite3_prepare_v2(this->db, DELETE_RESERVATION_FOR_PLATE, strlen(DELETE_RESERVATION_FOR_PLATE), &stmt, nullptr);
+    sqlite3_prepare_v2(this->db, DELETE_RESERVATION_FOR_PLATE, strlen(DELETE_RESERVATION_FOR_PLATE), &stmt,
+                       nullptr);
 
     sqlite3_bind_text(stmt, 1, licensePlate.c_str(), licensePlate.length(), nullptr);
 
-    sqlite3_step(stmt);
+    int res = sqlite3_step(stmt);
+
+    if (res == SQLITE_OK || res == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+
+        return true;
+    }
 
     sqlite3_finalize(stmt);
 
@@ -164,7 +174,7 @@ std::unique_ptr<std::vector<SpaceState>> SQLDatabase::fetchAllSpaceStates() {
         std::string occupant;
 
         if (statement != nullptr) {
-            occupant = std::string (statement);
+            occupant = std::string(statement);
         }
 
         states->emplace_back(sqlite3_column_int(stmt, 0),
@@ -194,8 +204,10 @@ SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
         return SpaceState(spaceID, FREE, "", "");
     }
 
+    const char *str = (const char *) sqlite3_column_text(stmt, 3);
+
     std::string section((const char *) sqlite3_column_text(stmt, 1)),
-            occupant((const char *) sqlite3_column_text(stmt, 3));
+            occupant(str == nullptr ? "" : str);
 
     auto state = static_cast<SpaceStates>(sqlite3_column_int(stmt, 2));
 
@@ -230,7 +242,7 @@ SpaceState SQLDatabase::getReservationForLicensePlate(std::string licensePlate) 
     std::string occupant;
 
     if (statement != nullptr) {
-        occupant = std::string (statement);
+        occupant = std::string(statement);
     }
 
     auto spaceState = static_cast<SpaceStates>(sqlite3_column_int(stmt, 2));

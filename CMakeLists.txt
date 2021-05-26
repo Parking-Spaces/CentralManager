@@ -4,13 +4,15 @@ project(Raspberry)
 set(CMAKE_CXX_STANDARD 17)
 find_package(SQLite3)
 
+include(FindPkgConfig)
+include(FetchContent)
+
 include_directories(${SQLite3_INCLUDE_DIRS})
 
 # Another way is to use CMake's FetchContent module to clone gRPC at
 # configure time. This makes gRPC's source code available to your project,
 # similar to a git submodule.
 message(STATUS "Using gRPC via add_subdirectory (FetchContent).")
-include(FetchContent)
 FetchContent_Declare(
         grpc
         GIT_REPOSITORY https://github.com/grpc/grpc.git
@@ -58,16 +60,32 @@ add_custom_command(
 # Include generated *.pb.h files
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
+pkg_check_modules(CURLPP REQUIRED curlpp)
+
+FetchContent_Declare(json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.7.3)
+
+FetchContent_GetProperties(json)
+if(NOT json_POPULATED)
+    FetchContent_Populate(json)
+    add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
 add_executable(Raspberry main.cpp database/database.h database/SQLDatabase.cpp database/SQLDatabase.h ${hw_proto_srcs}
         ${hw_grpc_srcs} server/parkingspacesimpl.cpp server/parkingspacesimpl.h server/parkingnotifications.cpp
-        server/parkingnotifications.h server/server.h server/server.cpp)
+        server/parkingnotifications.h server/server.h server/server.cpp conn_arduino/arduino_notification.h conn_arduino/firebase_notifications.cpp conn_arduino/firebase_notifications.h)
 
 add_executable(RaspberryTest testclient/main.cpp ${hw_proto_srcs}  ${hw_grpc_srcs})
 
 target_link_libraries(RaspberryTest ${SQLite3_LIBRARIES} ${_REFLECTION}
         ${_GRPC_GRPCPP}
-        ${_PROTOBUF_LIBPROTOBUF})
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${CURLPP_LDFLAGS}
+        nlohmann_json::nlohmann_json)
 
 target_link_libraries(Raspberry ${SQLite3_LIBRARIES} ${_REFLECTION}
         ${_GRPC_GRPCPP}
-        ${_PROTOBUF_LIBPROTOBUF})
+        ${_PROTOBUF_LIBPROTOBUF}
+        ${CURLPP_LDFLAGS}
+        nlohmann_json::nlohmann_json)

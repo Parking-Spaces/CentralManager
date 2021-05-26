@@ -32,7 +32,7 @@ public:
      * @param state
      * @param licensePlate
      */
-    void updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) override;
+    SpaceState updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) override;
 
     SpaceState getReservationForLicensePlate(std::string licensePlate) override;
 

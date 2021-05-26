@@ -4,15 +4,18 @@
 #include "parkingspaces.grpc.pb.h"
 #include "../database/database.h"
 #include "parkingnotifications.h"
+#include "../conn_arduino/arduino_notification.h"
 
 class ParkingSpacesImpl : public ParkingSpaces::Service {
 
 private:
     std::shared_ptr<Database> db;
     std::shared_ptr<ParkingNotificationsImpl> notifications;
+    std::shared_ptr<ArduinoConnection> conn;
 
 public:
-    ParkingSpacesImpl(std::shared_ptr<Database> db, std::shared_ptr<ParkingNotificationsImpl> notifications);
+    ParkingSpacesImpl(std::shared_ptr<Database> db, std::shared_ptr<ParkingNotificationsImpl> notifications,
+                      std::shared_ptr<ArduinoConnection> conn);
 
     ~ParkingSpacesImpl() override;
 
