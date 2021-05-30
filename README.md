@@ -1,3 +1,6 @@
+Note that you are required to have the proto in the location: ../CentralProto/parkingspaces.proto (Just clone the proto repo in the parent folder to this project)
+
+
 Install curlpp with:
 sudo apt-get install pkg-config libcurlpp-dev libcurl4-openssl-dev
 
