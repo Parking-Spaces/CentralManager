@@ -82,6 +82,9 @@ void parsePathAndData(const std::string &path, const json &data) {
             spaceID = atoi(curr.c_str());
         } else {
             if (curr == RESERVED) {
+
+                //We ignore the reserved messages as we are the ones that reserve the spaces,
+                //This field is mostly reserved for arduinos
                 return;
             }
         }
@@ -99,6 +102,8 @@ void parseData(const std::string &string) {
     size_t sz = string.find_first_of(':');
 
     std::string finalStr = string.substr(sz + 1);
+
+    std::cout << finalStr << std::endl;
 
     json json_obj = json::parse(finalStr);
 

@@ -21,15 +21,15 @@
 
 #define SELECT_SPACE "SELECT * FROM SPACES WHERE PID=?"
 
-#define MAKE_RESERVATION "UPDATE SPACES SET STATE='RESERVED', OCCUPANT=? WHERE PID=? AND STATE='FREE';"
+#define MAKE_RESERVATION "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=? WHERE PID=? AND STATE=?;"
 
-#define SELECT_RESERVATION_FOR "SELECT * FROM SPACES WHERE OCCUPANT=? AND STATE='RESERVED'"
+#define SELECT_RESERVATION_FOR "SELECT * FROM SPACES WHERE OCCUPANT_PLATE=? AND STATE=?"
 
-#define SELECT_SPACE_OCCUPIED_BY "SELECT * FROM SPACES WHERE OCCUPANT=? AND STATE='OCCUPIED'"
+#define SELECT_SPACE_OCCUPIED_BY "SELECT * FROM SPACES WHERE OCCUPANT_PLATE=? AND STATE=?"
 
-#define DELETE_RESERVATION_FOR_SPACE "UPDATE SPACES SET STATE='FREE' WHERE PID=?"
+#define DELETE_RESERVATION_FOR_SPACE "UPDATE SPACES SET STATE=? WHERE PID=?"
 
-#define DELETE_RESERVATION_FOR_PLATE "UPDATE SPACES SET STATE='FREE', OCCUPANT_PLATE=NULL WHERE OCCUPANT_PLATE=? AND STATE='RESERVED'"
+#define DELETE_RESERVATION_FOR_PLATE "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=NULL WHERE OCCUPANT_PLATE=? AND STATE=?"
 
 #define CREATE_LOG_TABLE "CREATE TABLE IF NOT EXISTS ENTRANCE_LOG(PLATE varchar(20) NOT NULL, "\
                     "LOG_TYPE ENUM('ENTRY', 'EXIT') NOT NULL, LOG_TIME TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," \
@@ -80,8 +80,12 @@ void SQLDatabase::insertSpace(unsigned int spaceID, std::string section) {
     sqlite3_bind_int(stmt, 1, spaceID);
     sqlite3_bind_text(stmt, 2, section.c_str(), section.length(), nullptr);
 
-    if (sqlite3_step(stmt) == SQLITE_OK) {
+    int rc = sqlite3_step(stmt);
+
+    if (rc == SQLITE_OK || rc == SQLITE_DONE) {
         //completed successfully
+    } else {
+        std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -104,10 +108,12 @@ SQLDatabase::updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates s
     } else {
         sqlite3_bind_text(stmt, 2, licensePlate.c_str(), licensePlate.length(), nullptr);
     }
-    sqlite3_bind_int(stmt, 3, spaceID);
 
-    if (sqlite3_step(stmt) != SQLITE_OK) {
-        std::cout << sqlite3_errmsg(this->db) << std::endl;
+    sqlite3_bind_int(stmt, 3, spaceID);
+    int rc = sqlite3_step(stmt);
+
+    if (rc != SQLITE_OK && rc != SQLITE_DONE) {
+        std::cout << "ERR2 :" << sqlite3_errmsg(this->db) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -122,19 +128,27 @@ bool SQLDatabase::attemptToReserveSpot(unsigned int spaceID, std::string license
 
     sqlite3_prepare_v2(this->db, MAKE_RESERVATION, strlen(MAKE_RESERVATION), &stmt, nullptr);
 
-    sqlite3_bind_text(stmt, 1, licensePlate.c_str(), licensePlate.length(), nullptr);
+    sqlite3_bind_int(stmt, 1, parkingspaces::SpaceStates::RESERVED);
 
-    sqlite3_bind_int(stmt, 2, spaceID);
+    sqlite3_bind_text(stmt, 2, licensePlate.c_str(), licensePlate.length(), nullptr);
+
+    sqlite3_bind_int(stmt, 3, spaceID);
+
+    sqlite3_bind_int(stmt, 4, parkingspaces::SpaceStates::FREE);
 
     int rc = sqlite3_step(stmt);
 
     sqlite3_finalize(stmt);
 
     if (rc != SQLITE_OK && rc != SQLITE_DONE) {
+        std::cout << "ERR RESERVE:" << sqlite3_errmsg(this->db) << std::endl;
+
         return false;
     }
 
-    return true;
+    int changes = sqlite3_changes(this->db);
+
+    return changes > 0;
 }
 
 bool SQLDatabase::cancelReservationsFor(std::string licensePlate) {
@@ -144,16 +158,22 @@ bool SQLDatabase::cancelReservationsFor(std::string licensePlate) {
     sqlite3_prepare_v2(this->db, DELETE_RESERVATION_FOR_PLATE, strlen(DELETE_RESERVATION_FOR_PLATE), &stmt,
                        nullptr);
 
-    sqlite3_bind_text(stmt, 1, licensePlate.c_str(), licensePlate.length(), nullptr);
+    sqlite3_bind_int(stmt, 1, parkingspaces::SpaceStates::FREE);
+
+    sqlite3_bind_text(stmt, 2, licensePlate.c_str(), licensePlate.length(), nullptr);
+    sqlite3_bind_int(stmt, 3, parkingspaces::SpaceStates::RESERVED);
 
     int res = sqlite3_step(stmt);
 
     if (res == SQLITE_OK || res == SQLITE_DONE) {
         sqlite3_finalize(stmt);
 
-        return true;
+        int changes = sqlite3_changes(db);
+
+        return changes > 0;
     }
 
+    std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
     sqlite3_finalize(stmt);
 
     return false;
@@ -174,6 +194,7 @@ std::unique_ptr<std::vector<SpaceState>> SQLDatabase::fetchAllSpaceStates() {
 
         else if (res != SQLITE_ROW) {
             std::cout << "Failed to read row from DB" << std::endl;
+            std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
             break;
         }
 
@@ -209,8 +230,9 @@ SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
 
     int res = sqlite3_step(stmt);
 
-    if (res != SQLITE_ROW) {
+    if (res != SQLITE_ROW && res != SQLITE_DONE) {
         std::cout << "No space by that ID" << std::endl;
+        std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
 
         return SpaceState(-1, parkingspaces::SpaceStates::FREE, "", "");
     }
@@ -235,11 +257,15 @@ SpaceState SQLDatabase::getReservationForLicensePlate(std::string licensePlate) 
 
     sqlite3_bind_text(stmt, 1, licensePlate.c_str(), licensePlate.length(), nullptr);
 
+    sqlite3_bind_int(stmt, 2, parkingspaces::SpaceStates::RESERVED);
+
     int res = sqlite3_step(stmt);
 
     if (res != SQLITE_ROW) {
 
         sqlite3_finalize(stmt);
+
+        std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
 
         SpaceState spstate{-1, parkingspaces::SpaceStates::FREE, std::string(), std::string()};
 
@@ -275,9 +301,13 @@ SpaceState SQLDatabase::getSpaceOccupiedByLicensePlate(std::string licensePlate)
 
     sqlite3_bind_text(stmt, 1, licensePlate.c_str(), licensePlate.length(), nullptr);
 
+    sqlite3_bind_int(stmt, 2, parkingspaces::SpaceStates::OCCUPIED);
+
     int res = sqlite3_step(stmt);
 
     if (res != SQLITE_ROW) {
+
+        std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
 
         sqlite3_finalize(stmt);
 

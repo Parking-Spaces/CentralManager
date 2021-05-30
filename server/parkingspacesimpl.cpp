@@ -30,14 +30,20 @@ grpc::Status
 ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
                                          ::ReservationResponse *response) {
 
+    std::cout << "Reserving space " << request->spaceid() << std::endl;
+
     bool res = this->db->attemptToReserveSpot(request->spaceid(), request->licenceplate());
 
     response->set_spaceid(request->spaceid());
+
+    std::cout << "Reserve result: " << res << std::endl;
 
     SpaceState state = this->db->getStateForSpace(request->spaceid());
 
     if (res) {
         response->set_response(parkingspaces::ReserveState::SUCCESSFUL);
+
+        std::cout << "WTF" << std::endl;
 
         parkingspaces::ParkingSpaceStatus status;
 
@@ -48,7 +54,6 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
         notifications->publishParkingSpaceUpdate(status);
 
         this->conn->notifyArduino(state.getSpaceId(), true);
-
     } else {
         if (state.getState() == parkingspaces::SpaceStates::OCCUPIED) {
             response->set_response(parkingspaces::ReserveState::FAILED_SPACE_OCCUPIED);

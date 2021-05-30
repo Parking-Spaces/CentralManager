@@ -40,6 +40,42 @@ public:
         reader->Finish();
     }
 
+    void testReserve( ) {
+        grpc::ClientContext context;
+
+        parkingspaces::ParkingSpaceReservation reservation;
+
+        reservation.set_spaceid(1);
+        reservation.set_licenceplate("13-HX-23");
+
+        parkingspaces::ReservationResponse reservationResponse;
+
+        stubp_->attemptToReserveSpace(&context, reservation, &reservationResponse);
+
+        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse.response() << std::endl;
+
+        grpc::ClientContext context2;
+
+        parkingspaces::ParkingSpaceReservation reservation2;
+
+        reservation2.set_spaceid(1);
+        reservation2.set_licenceplate("13-HX-24");
+
+        parkingspaces::ReservationResponse reservationResponse2;
+
+        stubp_->attemptToReserveSpace(&context2, reservation2, &reservationResponse2);
+
+        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse2.response() << std::endl;
+
+        grpc::ClientContext context3;
+
+        parkingspaces::ReservationCancelResponse cancelResponse;
+
+        stubp_->cancelSpaceReservation(&context3, reservation, &cancelResponse);
+
+        std::cout << "Cancelling response:" << cancelResponse.cancelstate() << std::endl;
+    }
+
 private:
     std::unique_ptr<parkingspaces::ParkingNotifications::Stub> stub_;
     std::unique_ptr<parkingspaces::ParkingSpaces::Stub> stubp_;
@@ -49,5 +85,7 @@ int main(int argc, char **argv) {
     auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
 
     Client cl(channel);
-    cl.subToParkingSpaces();
+
+
+    cl.testReserve();
 }
