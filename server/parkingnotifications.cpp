@@ -154,15 +154,7 @@ public:
         return true;
     }
 
-    void onReady() override {
-        parkingspaces::ParkingSpaceStatus status;
-
-        status.set_spacestate(parkingspaces::SpaceStates::FREE);
-        status.set_spacesection("A");
-        status.set_spaceid(1);
-
-        subs->sendMessageToSubscribers(status);
-    }
+    void onReady() override {}
 
 };
 
