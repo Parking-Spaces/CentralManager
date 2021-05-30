@@ -59,10 +59,21 @@ void ParkingServer::startNotifications() {
 
 void ParkingServer::receiveParkingSpaceNotification(int spaceID, bool occupied) {
 
-    std::cout << "Updating space " << spaceID << " to " << occupied << std::endl;
+    std::cout << "Updating space " << spaceID << " to " << (occupied ? SpaceStates::OCCUPIED : SpaceStates::FREE) << std::endl;
 
     auto space = this->db->updateSpaceState(spaceID, occupied ? SpaceStates::OCCUPIED : SpaceStates::FREE,
                                             std::string());
+
+    if (space.getSpaceId() < 0) {
+
+        std::cout << "Inserting space..." << std::endl;
+
+        this->db->insertSpace(spaceID, "A");
+
+        receiveParkingSpaceNotification(spaceID, occupied);
+
+        return;
+    }
 
     ParkingSpaceStatus status;
 

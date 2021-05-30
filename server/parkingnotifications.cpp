@@ -68,7 +68,7 @@ public:
             this->status_ = LISTENING;
         } else if (status_ == LISTENING) {
 
-            std::cout << "Listening..." << messageQueue.size() << std::endl;
+            std::cout << "Listening... Queued messages: " << messageQueue.size() << std::endl;
 
             if (messageQueue.empty()) {
                 readyToReceive.store(true);
