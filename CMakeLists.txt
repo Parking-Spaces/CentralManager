@@ -74,7 +74,8 @@ endif()
 
 add_executable(Raspberry main.cpp database/database.h database/SQLDatabase.cpp database/SQLDatabase.h ${hw_proto_srcs}
         ${hw_grpc_srcs} server/parkingspacesimpl.cpp server/parkingspacesimpl.h server/parkingnotifications.cpp
-        server/parkingnotifications.h server/server.h server/server.cpp conn_arduino/arduino_notification.h conn_arduino/firebase_notifications.cpp conn_arduino/firebase_notifications.h)
+        server/parkingnotifications.h server/server.h server/server.cpp conn_arduino/arduino_notification.h
+        conn_arduino/firebase_notifications.cpp conn_arduino/firebase_notifications.h)
 
 add_executable(RaspberryTest testclient/main.cpp ${hw_proto_srcs}  ${hw_grpc_srcs})
 

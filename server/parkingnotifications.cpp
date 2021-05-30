@@ -23,7 +23,7 @@ private:
 template<class Res>
 class CallData : public RPCContextBase {
 public:
-    CallData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq, Subscribers<Res> *subs)
+    CallData(parkingspaces::ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq, Subscribers<Res> *subs)
             : service_(service),
               cq_(cq),
               status_(CREATE),
@@ -117,7 +117,7 @@ protected:
 
     // The means of communication with the gRPC runtime for an asynchronous
     // server.
-    ParkingNotifications::AsyncService *service_;
+    parkingspaces::ParkingNotifications::AsyncService *service_;
 
     // The producer-consumer queue where for asynchronous server notifications.
     grpc::ServerCompletionQueue *cq_;
@@ -129,13 +129,13 @@ protected:
     CallStatus status_;  // The current serving state.
 };
 
-class ParkingSpacesData : public CallData<ParkingSpaceStatus> {
+class ParkingSpacesData : public CallData<parkingspaces::ParkingSpaceStatus> {
 private:
-    ParkingSpacesRq request;
+    parkingspaces::ParkingSpacesRq request;
 
 public:
-    ParkingSpacesData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
-                      Subscribers<ParkingSpaceStatus> *subscribers) : CallData(service,
+    ParkingSpacesData(parkingspaces::ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
+                      Subscribers<parkingspaces::ParkingSpaceStatus> *subscribers) : CallData(service,
                                                                                cq, subscribers) {
         Proceed();
     }
@@ -150,14 +150,14 @@ public:
         new ParkingSpacesData(service_, cq_, subs);
     }
 
-    bool shouldReceive(const ParkingSpaceStatus &res) override {
+    bool shouldReceive(const parkingspaces::ParkingSpaceStatus &res) override {
         return true;
     }
 
     void onReady() override {
-        ParkingSpaceStatus status;
+        parkingspaces::ParkingSpaceStatus status;
 
-        status.set_spacestate(FREE);
+        status.set_spacestate(parkingspaces::SpaceStates::FREE);
         status.set_spacesection("A");
         status.set_spaceid(1);
 
@@ -166,13 +166,13 @@ public:
 
 };
 
-class ReservationSpaceData : public CallData<ReserveStatus> {
+class ReservationSpaceData : public CallData<parkingspaces::ReserveStatus> {
 private:
-    ParkingSpaceReservation request;
+    parkingspaces::ParkingSpaceReservation request;
 
 public:
-    ReservationSpaceData(ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
-                         Subscribers<ReserveStatus> *subs) :
+    ReservationSpaceData(parkingspaces::ParkingNotifications::AsyncService *service, grpc::ServerCompletionQueue *cq,
+                         Subscribers<parkingspaces::ReserveStatus> *subs) :
             CallData(service, cq, subs) {
         Proceed();
     }
@@ -186,7 +186,7 @@ public:
         new ReservationSpaceData(service_, cq_, subs);
     }
 
-    bool shouldReceive(const ReserveStatus &res) override {
+    bool shouldReceive(const parkingspaces::ReserveStatus &res) override {
         if (res.spaceid() == request.spaceid()) return true;
 
         return false;
@@ -197,8 +197,8 @@ public:
 };
 
 ParkingNotificationsImpl::ParkingNotificationsImpl() :
-parkingSpaceSubscribers(std::make_unique<Subscribers<ParkingSpaceStatus>>()),
-reservationSubscribers(std::make_unique<Subscribers<ReserveStatus>>()) {}
+parkingSpaceSubscribers(std::make_unique<Subscribers<parkingspaces::ParkingSpaceStatus>>()),
+reservationSubscribers(std::make_unique<Subscribers<parkingspaces::ReserveStatus>>()) {}
 
 void ParkingNotificationsImpl::registerService(grpc::ServerBuilder &builder) {
 
@@ -232,10 +232,10 @@ void ParkingNotificationsImpl::HandleRpcs() {
     }
 }
 
-void ParkingNotificationsImpl::publishParkingSpaceUpdate(ParkingSpaceStatus &status) {
+void ParkingNotificationsImpl::publishParkingSpaceUpdate(parkingspaces::ParkingSpaceStatus &status) {
     this->parkingSpaceSubscribers->sendMessageToSubscribers(status);
 }
 
-void ParkingNotificationsImpl::publishReservationUpdate(ReserveStatus &status) {
+void ParkingNotificationsImpl::publishReservationUpdate(parkingspaces::ReserveStatus &status) {
     this->reservationSubscribers->sendMessageToSubscribers(status);
 }

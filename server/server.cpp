@@ -1,6 +1,8 @@
 #include "server.h"
 #include <thread>
 
+using namespace parkingspaces;
+
 void startNotificationServer(ParkingNotificationsImpl *notif) {
     notif->run();
 }

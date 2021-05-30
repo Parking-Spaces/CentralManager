@@ -4,13 +4,15 @@ ParkingSpacesImpl::~ParkingSpacesImpl() {
     this->db.reset();
 }
 
+using namespace parkingspaces;
+
 grpc::Status ParkingSpacesImpl::fetchAllParkingStates(::grpc::ServerContext *context, const ::ParkingSpacesRq *request,
                                                       ::grpc::ServerWriter<::ParkingSpaceStatus> *writer) {
 
     auto spaceStates = this->db->fetchAllSpaceStates();
 
     for (const auto &space : *spaceStates) {
-        ParkingSpaceStatus status;
+        parkingspaces::ParkingSpaceStatus status;
 
         status.set_spaceid(space.getSpaceId());
 
@@ -35,9 +37,9 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
     SpaceState state = this->db->getStateForSpace(request->spaceid());
 
     if (res) {
-        response->set_response(ReserveState::SUCCESSFUL);
+        response->set_response(parkingspaces::ReserveState::SUCCESSFUL);
 
-        ParkingSpaceStatus status;
+        parkingspaces::ParkingSpaceStatus status;
 
         status.set_spaceid(state.getSpaceId());
         status.set_spacesection(state.getSection());
@@ -48,12 +50,12 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
         this->conn->notifyArduino(state.getSpaceId(), true);
 
     } else {
-        if (state.getState() == OCCUPIED) {
-            response->set_response(ReserveState::FAILED_SPACE_OCCUPIED);
-        } else if (state.getState() == RESERVED) {
-            response->set_response(ReserveState::FAILED_SPACE_RESERVED);
+        if (state.getState() == parkingspaces::SpaceStates::OCCUPIED) {
+            response->set_response(parkingspaces::ReserveState::FAILED_SPACE_OCCUPIED);
+        } else if (state.getState() == parkingspaces::SpaceStates::RESERVED) {
+            response->set_response(parkingspaces::ReserveState::FAILED_SPACE_RESERVED);
         } else {
-            response->set_response(ReserveState::FAILED_LICENSE_PLATE_ALREADY_HAS_RESERVE);
+            response->set_response(parkingspaces::ReserveState::FAILED_LICENSE_PLATE_ALREADY_HAS_RESERVE);
         }
     }
 
@@ -61,17 +63,17 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
 }
 
 grpc::Status
-ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
-                                          ::ReservationCancelResponse *response) {
+ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
+                                          parkingspaces::ReservationCancelResponse *response) {
 
     SpaceState state = this->db->getReservationForLicensePlate(request->licenceplate());
 
     bool res = this->db->cancelReservationsFor(request->licenceplate());
 
     if (res) {
-        response->set_cancelstate(ReserveCancelState::CANCELLED);
+        response->set_cancelstate(parkingspaces::ReserveCancelState::CANCELLED);
 
-        ParkingSpaceStatus status;
+        parkingspaces::ParkingSpaceStatus status;
 
         status.set_spaceid(state.getSpaceId());
         status.set_spacestate(state.getState());
@@ -79,18 +81,18 @@ ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const 
 
         this->notifications->publishParkingSpaceUpdate(status);
 
-        ReserveStatus reserveStatus;
+        parkingspaces::ReserveStatus reserveStatus;
 
         reserveStatus.set_spaceid(state.getSpaceId());
 
-        reserveStatus.set_state(ReservationState::RESERVE_CANCELLED);
+        reserveStatus.set_state(parkingspaces::ReservationState::RESERVE_CANCELLED);
 
         this->notifications->publishReservationUpdate(reserveStatus);
 
         this->conn->notifyArduino(state.getSpaceId(), false);
 
     } else {
-        response->set_cancelstate(ReserveCancelState::NO_RESERVATION_FOR_PLATE);
+        response->set_cancelstate(parkingspaces::ReserveCancelState::NO_RESERVATION_FOR_PLATE);
     }
 
     return grpc::Status::OK;

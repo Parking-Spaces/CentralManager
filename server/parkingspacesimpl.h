@@ -6,7 +6,7 @@
 #include "parkingnotifications.h"
 #include "../conn_arduino/arduino_notification.h"
 
-class ParkingSpacesImpl : public ParkingSpaces::Service {
+class ParkingSpacesImpl : public parkingspaces::ParkingSpaces::Service {
 
 private:
     std::shared_ptr<Database> db;
@@ -19,14 +19,14 @@ public:
 
     ~ParkingSpacesImpl() override;
 
-    grpc::Status fetchAllParkingStates(::grpc::ServerContext *context, const ::ParkingSpacesRq *request,
-                                       ::grpc::ServerWriter<::ParkingSpaceStatus> *writer) override;
+    grpc::Status fetchAllParkingStates(::grpc::ServerContext *context, const parkingspaces::ParkingSpacesRq *request,
+                                       ::grpc::ServerWriter<parkingspaces::ParkingSpaceStatus> *writer) override;
 
-    grpc::Status attemptToReserveSpace(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
-                                       ::ReservationResponse *response) override;
+    grpc::Status attemptToReserveSpace(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
+                                       parkingspaces::ReservationResponse *response) override;
 
-    grpc::Status cancelSpaceReservation(::grpc::ServerContext *context, const ::ParkingSpaceReservation *request,
-                                        ::ReservationCancelResponse *response) override;
+    grpc::Status cancelSpaceReservation(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
+                                        parkingspaces::ReservationCancelResponse *response) override;
 
 };
 

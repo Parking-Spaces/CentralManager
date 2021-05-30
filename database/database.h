@@ -8,12 +8,12 @@ class SpaceState {
 private:
     int spaceID;
 
-    SpaceStates state;
+    parkingspaces::SpaceStates state;
 
     std::string section, occupant;
 
 public:
-    SpaceState(int spaceId, SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
+    SpaceState(int spaceId, parkingspaces::SpaceStates state, const std::string &section, const std::string &occupant) : spaceID(
             spaceId), state(state), section(section), occupant(occupant) {}
 
 public:
@@ -21,7 +21,7 @@ public:
         return spaceID;
     }
 
-    SpaceStates getState() const {
+    parkingspaces::SpaceStates getState() const {
         return state;
     }
 
@@ -66,7 +66,7 @@ public:
      * @param licensePlate
      * @return
      */
-    virtual SpaceState updateSpaceState(unsigned int spaceID, SpaceStates state, std::string licensePlate) = 0;
+    virtual SpaceState updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates state, std::string licensePlate) = 0;
 
     /**
      * Get the reservation for a license plate

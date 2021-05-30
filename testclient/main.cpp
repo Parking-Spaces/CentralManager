@@ -8,17 +8,17 @@
 class Client {
 
 public:
-    Client(std::shared_ptr<grpc::Channel> channel) : stub_(ParkingNotifications::NewStub(channel)),
-                                                     stubp_(ParkingSpaces::NewStub(channel)) {}
+    Client(std::shared_ptr<grpc::Channel> channel) : stub_(parkingspaces::ParkingNotifications::NewStub(channel)),
+                                                     stubp_(parkingspaces::ParkingSpaces::NewStub(channel)) {}
 
     void subToParkingSpaces() {
         grpc::ClientContext context, context2;
 
-        ParkingSpacesRq rq2;
+        parkingspaces::ParkingSpacesRq rq2;
 
         auto result = stubp_->fetchAllParkingStates(&context2, rq2);
 
-        ParkingSpaceStatus status2;
+        parkingspaces::ParkingSpaceStatus status2;
 
         while (result->Read(&status2)) {
             std::cout << "Read message2 " << std::endl;
@@ -26,10 +26,10 @@ public:
             std::cout << status2.spaceid() << " " << status2.spacesection() << " " << status2.spacestate() << std::endl;
         }
 
-        ParkingSpacesRq rq;
+        parkingspaces::ParkingSpacesRq rq;
         auto reader = stub_->subscribeToParkingStates(&context, rq);
 
-        ParkingSpaceStatus status;
+        parkingspaces::ParkingSpaceStatus status;
 
         while (reader->Read(&status)) {
             std::cout << "Read message " << std::endl;
@@ -41,8 +41,8 @@ public:
     }
 
 private:
-    std::unique_ptr<ParkingNotifications::Stub> stub_;
-    std::unique_ptr<ParkingSpaces::Stub> stubp_;
+    std::unique_ptr<parkingspaces::ParkingNotifications::Stub> stub_;
+    std::unique_ptr<parkingspaces::ParkingSpaces::Stub> stubp_;
 };
 
 int main(int argc, char **argv) {
