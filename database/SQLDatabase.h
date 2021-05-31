@@ -26,6 +26,8 @@ public:
 
     SpaceState getStateForSpace(unsigned int spaceID) override;
 
+    std::unique_ptr<std::vector<SpaceState>> getExpiredReserveStates() override;
+
     /**
      * Update the state of a space to a state and a current occupant
      * @param spaceID
@@ -41,6 +43,8 @@ public:
     bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) override;
 
     bool cancelReservationsFor(std::string licensePlate) override;
+
+    bool cancelReservationForSpot(int spaceID) override;
 
 };
 

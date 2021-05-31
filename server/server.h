@@ -17,7 +17,7 @@ private:
     std::shared_ptr<Database> db;
     std::shared_ptr<ArduinoConnection> connection;
 
-    std::thread notifThread;
+    std::thread notifThread, expirationThread;
 
     std::unique_ptr<grpc::Server> server;
 
@@ -31,12 +31,23 @@ public:
 private:
     void startNotifications();
 
-    const ParkingNotificationsImpl &getNotifications() const {
-        return *notifications;
+    void startExpirations();
+
+public:
+    ArduinoConnection *getArduinoConn() const {
+        return this->connection.get();
     }
 
-    const ParkingSpacesImpl &getSpaces() const {
-        return *spaces;
+    ParkingNotificationsImpl *getNotifications() const {
+        return notifications.get();
+    }
+
+    ParkingSpacesImpl *getSpaces() const {
+        return spaces.get();
+    }
+
+    Database *getDatabase() const {
+        return this->db.get();
     }
 
 };

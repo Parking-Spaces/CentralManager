@@ -3,7 +3,7 @@
 #include <queue>
 
 enum CallStatus {
-    CREATE, LISTENING, FINISH
+    CREATE, LISTENING, FINISH, FINISHED
 };
 
 struct IsCancelledCallback final : public RPCContextBase {
@@ -48,7 +48,18 @@ public:
         } else {
             messageQueue.push(toWrite);
         }
+
     };
+
+    void end() {
+        if (this->messageQueue.empty()) {
+            responder_.Finish(grpc::Status::OK, this);
+
+            status_ = FINISHED;
+        } else {
+            status_ = FINISH;
+        }
+    }
 
     virtual void registerRequest() = 0;
 
@@ -58,46 +69,70 @@ public:
 
     virtual bool shouldReceive(const Res &res) = 0;
 
-    void Proceed() override {
-        if (status_ == CREATE) {
-
-            std::cout << "Waiting for parking state" << std::endl;
-
-            registerRequest();
-
-            this->status_ = LISTENING;
-        } else if (status_ == LISTENING) {
-
-            std::cout << "Listening... Queued messages: " << messageQueue.size() << std::endl;
-
-            if (messageQueue.empty()) {
-                readyToReceive.store(true);
-            } else {
-                Res &res = messageQueue.front();
-
-                responder_.Write(res, this);
-
-                messageQueue.pop();
-            }
-
-            if (count == 0) {
-
-                initializeNewRq();
-
-                subs->registerSubscriber(this);
-
-                count++;
-
-                onReady();
-            }
-
+private:
+    void clearQueue() {
+        if (messageQueue.empty()) {
+            readyToReceive.store(true);
         } else {
+            Res &res = messageQueue.front();
 
-            //If we want to end the connection from the server side, we have to set the
-            //status_ to finished
-            responder_.Finish(grpc::Status::OK, this);
+            responder_.Write(res, this);
 
-            delete this;
+            messageQueue.pop();
+        }
+    }
+public:
+
+    void Proceed() override {
+
+        switch (status_) {
+            case CREATE:{
+
+                std::cout << "Waiting for parking state" << std::endl;
+
+                registerRequest();
+
+                this->status_ = LISTENING;
+                break;
+            }
+            case LISTENING: {
+
+                std::cout << "Listening... Queued messages: " << messageQueue.size() << std::endl;
+
+                clearQueue();
+
+                if (count == 0) {
+
+                    initializeNewRq();
+
+                    subs->registerSubscriber(this);
+
+                    count++;
+
+                    onReady();
+                }
+
+                break;
+            }
+            case FINISH: {
+
+                if (!this->messageQueue.empty()) {
+                    clearQueue();
+
+                    break;
+                }
+
+                responder_.Finish(grpc::Status::OK, this);
+                status_ = FINISHED;
+
+                break;
+            }
+            case FINISHED: {
+                delete this;
+
+                break;
+            }
+
         }
     }
 
@@ -230,4 +265,10 @@ void ParkingNotificationsImpl::publishParkingSpaceUpdate(parkingspaces::ParkingS
 
 void ParkingNotificationsImpl::publishReservationUpdate(parkingspaces::ReserveStatus &status) {
     this->reservationSubscribers->sendMessageToSubscribers(status);
+}
+
+void ParkingNotificationsImpl::endReservationStreamsFor(parkingspaces::ReserveStatus &status) {
+
+    this->reservationSubscribers->endStreamsFor(status);
+
 }

@@ -50,6 +50,37 @@ public:
             start++;
         }
     }
+
+    void endStreamsFor(const T &message) {
+
+        std::unique_lock<std::mutex> acqLock(this->lock);
+
+        auto start = registeredSubscribers.begin();
+
+        auto end = registeredSubscribers.end();
+
+        while (start != end) {
+
+            if (*start) {
+                if (!(*start)->isCancelled() && (*start)->shouldReceive(message)) {
+                    (*start)->end();
+
+                    start = registeredSubscribers.erase(start);
+                    end = registeredSubscribers.end();
+                    continue;
+                } else {
+
+                    std::cout << "Subscriber disconnected" << std::endl;
+
+                    start = registeredSubscribers.erase(start);
+                    end = registeredSubscribers.end();
+                    continue;
+                }
+            }
+
+            start++;
+        }
+    }
 };
 
 class RPCContextBase {
@@ -79,6 +110,8 @@ public:
     void publishParkingSpaceUpdate(parkingspaces::ParkingSpaceStatus &status);
 
     void publishReservationUpdate(parkingspaces::ReserveStatus &status);
+
+    void endReservationStreamsFor(parkingspaces::ReserveStatus &status);
 
 private:
     void HandleRpcs();

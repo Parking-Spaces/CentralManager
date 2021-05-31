@@ -22,11 +22,15 @@ public:
     grpc::Status fetchAllParkingStates(::grpc::ServerContext *context, const parkingspaces::ParkingSpacesRq *request,
                                        ::grpc::ServerWriter<parkingspaces::ParkingSpaceStatus> *writer) override;
 
+    grpc::Status checkReserveStatus(::grpc::ServerContext *context, const ::parkingspaces::LicensePlate *request,
+                                    ::parkingspaces::ParkingSpaceStatus *response) override;
+
     grpc::Status attemptToReserveSpace(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
                                        parkingspaces::ReservationResponse *response) override;
 
-    grpc::Status cancelSpaceReservation(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
-                                        parkingspaces::ReservationCancelResponse *response) override;
+    grpc::Status
+    cancelSpaceReservation(::grpc::ServerContext *context, const ::parkingspaces::ReservationCancelRequest *request,
+                           ::parkingspaces::ReservationCancelResponse *response) override;
 
 };
 

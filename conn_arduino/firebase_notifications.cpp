@@ -94,6 +94,15 @@ void parsePathAndData(const std::string &path, const json &data) {
 
     if (data.is_boolean()) {
         receiver->receiveSpaceUpdate(spaceID, data.get<bool>());
+    } else if (data.is_object()) {
+
+        if (data.contains(OCCUPIED)) {
+            json occupied = data[OCCUPIED];
+
+            if (occupied.is_boolean()) {
+                receiver->receiveSpaceUpdate(spaceID, occupied.get<bool>());
+            }
+        }
     }
 }
 

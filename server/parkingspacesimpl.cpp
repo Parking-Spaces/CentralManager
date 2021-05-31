@@ -43,9 +43,9 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
     if (res) {
         response->set_response(parkingspaces::ReserveState::SUCCESSFUL);
 
-        std::cout << "WTF" << std::endl;
-
         parkingspaces::ParkingSpaceStatus status;
+
+        std::cout << "WTF " << state.getState() << std::endl;
 
         status.set_spaceid(state.getSpaceId());
         status.set_spacesection(state.getSection());
@@ -67,13 +67,13 @@ ParkingSpacesImpl::attemptToReserveSpace(::grpc::ServerContext *context, const :
     return grpc::Status::OK;
 }
 
-grpc::Status
-ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const parkingspaces::ParkingSpaceReservation *request,
-                                          parkingspaces::ReservationCancelResponse *response) {
+grpc::Status ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context,
+                                                       const ::parkingspaces::ReservationCancelRequest *request,
+                                                       ::parkingspaces::ReservationCancelResponse *response) {
 
-    SpaceState state = this->db->getReservationForLicensePlate(request->licenceplate());
+    SpaceState state = this->db->getReservationForLicensePlate(request->licenseplate());
 
-    bool res = this->db->cancelReservationsFor(request->licenceplate());
+    bool res = this->db->cancelReservationsFor(request->licenseplate());
 
     if (res) {
         response->set_cancelstate(parkingspaces::ReserveCancelState::CANCELLED);
@@ -99,6 +99,18 @@ ParkingSpacesImpl::cancelSpaceReservation(::grpc::ServerContext *context, const 
     } else {
         response->set_cancelstate(parkingspaces::ReserveCancelState::NO_RESERVATION_FOR_PLATE);
     }
+
+    return grpc::Status::OK;
+}
+
+grpc::Status
+ParkingSpacesImpl::checkReserveStatus(::grpc::ServerContext *context, const ::parkingspaces::LicensePlate *request,
+                                      ::parkingspaces::ParkingSpaceStatus *response) {
+    SpaceState state = this->db->getReservationForLicensePlate(request->licenseplate());
+
+    response->set_spaceid(state.getSpaceId());
+    response->set_spacestate(state.getState());
+    response->set_spacesection(state.getSection());
 
     return grpc::Status::OK;
 }

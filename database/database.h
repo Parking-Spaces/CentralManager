@@ -3,6 +3,11 @@
 
 #include "parkingspaces.pb.h"
 
+/**
+ * The time for reservations to expire, in minutes
+ */
+#define RESERVATION_EXPIRATION 1
+
 class SpaceState {
 
 private:
@@ -58,6 +63,8 @@ public:
      */
     virtual SpaceState getStateForSpace(unsigned int spaceID) = 0;
 
+    virtual std::unique_ptr<std::vector<SpaceState>> getExpiredReserveStates() = 0;
+
     /**
      * Update the state of a space
      *
@@ -96,6 +103,8 @@ public:
      * @return
      */
     virtual bool cancelReservationsFor(std::string licensePlate) = 0;
+
+    virtual bool cancelReservationForSpot(int spaceID) = 0;
 
 };
 

@@ -1,10 +1,44 @@
 #include "server.h"
 #include <thread>
 
+#define PERIOD 5
+
 using namespace parkingspaces;
 
 void startNotificationServer(ParkingNotificationsImpl *notif) {
     notif->run();
+}
+
+[[noreturn]] void startExpirationServer(ParkingServer *server) {
+
+    while (true) {
+        std::cout << "Running expiration check" << std::endl;
+
+        Database *db = server->getDatabase();
+
+        auto states = db->getExpiredReserveStates();
+
+        std::cout << "Expired: " << states->size() << std::endl;
+        for (const auto &space : *states) {
+
+            bool result = db->cancelReservationForSpot(space.getSpaceId());
+
+            if (result) {
+                ReserveStatus status;
+
+                status.set_spaceid(space.getSpaceId());
+                status.set_state(ReservationState::RESERVE_CANCELLED_EXPIRED);
+
+                server->getNotifications()->publishReservationUpdate(status);
+
+                server->getArduinoConn()->notifyArduino(space.getSpaceId(), false);
+
+                std::cout << "Expired space reserve for " << space.getSpaceId() << std::endl;
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::minutes(PERIOD));
+    }
 }
 
 ParkingServer::ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<ArduinoConnection> conn) :
@@ -46,6 +80,8 @@ ParkingServer::ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<Ardui
 
     startNotifications();
 
+    startExpirations();
+
     std::cout << "Server listening on IP: " << SERVER_IP << std::endl;
 }
 
@@ -55,6 +91,10 @@ void ParkingServer::wait() {
 
 void ParkingServer::startNotifications() {
     this->notifThread = std::thread(startNotificationServer, notifications.get());
+}
+
+void ParkingServer::startExpirations() {
+    this->expirationThread = std::thread(startExpirationServer, this);
 }
 
 void ParkingServer::receiveParkingSpaceNotification(int spaceID, bool occupied) {
@@ -91,6 +131,8 @@ void ParkingServer::receiveParkingSpaceNotification(int spaceID, bool occupied) 
         resStatus.set_state(ReservationState::RESERVE_CONCLUDED);
 
         this->notifications->publishReservationUpdate(resStatus);
+
+        this->notifications->endReservationStreamsFor(resStatus);
 
         this->connection->notifyArduino(spaceID, false);
     }

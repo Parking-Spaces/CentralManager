@@ -10,26 +10,32 @@
  * Or even reserve a space and park somewhere else.
  */
 #define CREATE_PARKING_SPACES_TABLE "CREATE TABLE IF NOT EXISTS SPACES(PID INT PRIMARY KEY, SECTION varchar(20) NOT NULL,"\
-                                    " STATE INTEGER DEFAULT 0, OCCUPANT_PLATE varchar(20) DEFAULT NULL," \
-                                    "UNIQUE(OCCUPANT_PLATE));"
+                                    " STATE INTEGER DEFAULT 0,"\
+                                    " LAST_CHANGE INTEGER,"\
+                                    " OCCUPANT_PLATE varchar(20) DEFAULT NULL," \
+                                    " UNIQUE(OCCUPANT_PLATE));"
 
-#define INSERT_SPACE "INSERT INTO SPACES(PID, SECTION) values(?, ?)"
+#define CREATE_CHANGE_INDEX "CREATE INDEX IF NOT EXISTS CHANGE ON SPACES(LAST_CHANGE);"
 
-#define UPDATE_SPACE "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=? WHERE PID=?"
+#define INSERT_SPACE "INSERT INTO SPACES(PID, SECTION, LAST_CHANGE) values(?, ?, strftime('%s', 'now'))"
 
-#define SELECT_SPACES "SELECT * FROM SPACES"
+#define UPDATE_SPACE "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=?, LAST_CHANGE=strftime('%s', 'now') WHERE PID=?"
+
+#define SELECT_SPACES "SELECT PID, SECTION, STATE, OCCUPANT_PLATE, LAST_CHANGE FROM SPACES"
 
 #define SELECT_SPACE "SELECT * FROM SPACES WHERE PID=?"
 
-#define MAKE_RESERVATION "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=? WHERE PID=? AND STATE=?;"
+#define MAKE_RESERVATION "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=?, LAST_CHANGE=strftime('%s', 'now') WHERE PID=? AND STATE=?;"
+
+#define SELECT_EXPIRED_RESERVATIONS "SELECT * FROM SPACES WHERE STATE=1 AND LAST_CHANGE<=strftime('%s', 'now', '-45 minutes')"
 
 #define SELECT_RESERVATION_FOR "SELECT * FROM SPACES WHERE OCCUPANT_PLATE=? AND STATE=?"
 
 #define SELECT_SPACE_OCCUPIED_BY "SELECT * FROM SPACES WHERE OCCUPANT_PLATE=? AND STATE=?"
 
-#define DELETE_RESERVATION_FOR_SPACE "UPDATE SPACES SET STATE=? WHERE PID=?"
+#define DELETE_RESERVATION_FOR_SPACE "UPDATE SPACES SET STATE=?, LAST_CHANGE=strftime('%s', 'now') WHERE PID=? AND STATE=?"
 
-#define DELETE_RESERVATION_FOR_PLATE "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=NULL WHERE OCCUPANT_PLATE=? AND STATE=?"
+#define DELETE_RESERVATION_FOR_PLATE "UPDATE SPACES SET STATE=?, OCCUPANT_PLATE=NULL, LAST_CHANGE=strftime('%s', 'now') WHERE OCCUPANT_PLATE=? AND STATE=?"
 
 #define CREATE_LOG_TABLE "CREATE TABLE IF NOT EXISTS ENTRANCE_LOG(PLATE varchar(20) NOT NULL, "\
                     "LOG_TYPE ENUM('ENTRY', 'EXIT') NOT NULL, LOG_TIME TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," \
@@ -43,11 +49,23 @@ void SQLDatabase::createTable() {
 
     int rs = sqlite3_exec(this->db, CREATE_PARKING_SPACES_TABLE, nullptr, nullptr, &errMsg);
 
-    if (rs != SQLITE_OK) {
+    if (rs != SQLITE_OK && rs != SQLITE_DONE) {
         std::cout << errMsg << std::endl;
+
+        exit(1);
     } else {
         std::cout << "Created the table" << std::endl;
     }
+
+    rs = sqlite3_exec(this->db, CREATE_CHANGE_INDEX, nullptr, nullptr, &errMsg);
+    if (rs != SQLITE_OK && rs != SQLITE_DONE) {
+        std::cout << errMsg << std::endl;
+
+        exit(1);
+    } else {
+        std::cout << "Created the table" << std::endl;
+    }
+
 }
 
 SQLDatabase::SQLDatabase() : db(nullptr) {
@@ -230,19 +248,28 @@ SpaceState SQLDatabase::getStateForSpace(unsigned int spaceID) {
 
     int res = sqlite3_step(stmt);
 
-    if (res != SQLITE_ROW && res != SQLITE_DONE) {
+    if (res != SQLITE_ROW && res != SQLITE_DONE && res != SQLITE_OK) {
         std::cout << "No space by that ID" << std::endl;
         std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
 
         return SpaceState(-1, parkingspaces::SpaceStates::FREE, "", "");
+    } else if (res == SQLITE_DONE) {
+        return SpaceState(-1, parkingspaces::SpaceStates::FREE, "", "");
     }
+
+    spaceID = sqlite3_column_int(stmt, 0);
+
+    std::string section((const char *) sqlite3_column_text(stmt, 1));
+
+    std::cout << section << std::endl;
+
+    auto state = static_cast<parkingspaces::SpaceStates>(sqlite3_column_int(stmt, 2));
+
+    int last_change = sqlite3_column_int(stmt, 3);
 
     const char *str = (const char *) sqlite3_column_text(stmt, 4);
 
-    std::string section((const char *) sqlite3_column_text(stmt, 2)),
-            occupant(str == nullptr ? "" : str);
-
-    auto state = static_cast<parkingspaces::SpaceStates>(sqlite3_column_int(stmt, 3));
+    std::string occupant(str == nullptr ? "" : str);
 
     sqlite3_finalize(stmt);
 
@@ -261,7 +288,7 @@ SpaceState SQLDatabase::getReservationForLicensePlate(std::string licensePlate) 
 
     int res = sqlite3_step(stmt);
 
-    if (res != SQLITE_ROW) {
+    if (res != SQLITE_ROW && res != SQLITE_OK && res != SQLITE_DONE) {
 
         sqlite3_finalize(stmt);
 
@@ -335,4 +362,73 @@ SpaceState SQLDatabase::getSpaceOccupiedByLicensePlate(std::string licensePlate)
     sqlite3_finalize(stmt);
 
     return spaceInfo;
+}
+
+std::unique_ptr<std::vector<SpaceState>> SQLDatabase::getExpiredReserveStates() {
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, SELECT_EXPIRED_RESERVATIONS, strlen(SELECT_EXPIRED_RESERVATIONS), &stmt, nullptr);
+
+//    sqlite3_bind_int(stmt, 1, parkingspaces::SpaceStates::RESERVED);
+//    sqlite3_bind_int(stmt, 2, RESERVATION_EXPIRATION);
+
+    auto spaces = std::make_unique<std::vector<SpaceState>>();
+
+    while (true) {
+
+        int res = sqlite3_step(stmt);
+
+        if (res == SQLITE_DONE) break;
+        else if (res != SQLITE_ROW) {
+            std::cout << "Failed to read row from DB" << std::endl;
+            std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
+            break;
+        }
+
+        auto statement = (const char *) sqlite3_column_text(stmt, 3);
+
+        std::string occupant;
+
+        if (statement != nullptr) {
+            occupant = std::string(statement);
+        }
+
+        std::cout << "SpaceID: " << sqlite3_column_int(stmt, 0) << " State " << sqlite3_column_int(stmt, 2)
+                  << std::endl;
+
+        spaces->emplace_back(sqlite3_column_int(stmt, 0),
+                             static_cast<parkingspaces::SpaceStates>(sqlite3_column_int(stmt, 2)),
+                             std::string((const char *) sqlite3_column_text(stmt, 1)),
+                             occupant);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return std::move(spaces);
+}
+
+bool SQLDatabase::cancelReservationForSpot(int spaceID) {
+
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(this->db, DELETE_RESERVATION_FOR_SPACE, strlen(DELETE_RESERVATION_FOR_SPACE), &stmt, nullptr);
+
+    sqlite3_bind_int(stmt, 1, parkingspaces::SpaceStates::FREE);
+    sqlite3_bind_int(stmt, 2, spaceID);
+    sqlite3_bind_int(stmt, 3, parkingspaces::SpaceStates::RESERVED);
+
+    int res = sqlite3_step(stmt);
+
+    if (res != SQLITE_DONE && res != SQLITE_OK) {
+
+        std::cout << "ERR:" << sqlite3_errmsg(this->db) << std::endl;
+        return false;
+    }
+
+    int changes = sqlite3_changes(db);
+
+    sqlite3_finalize(stmt);
+
+    return changes > 0;
 }
