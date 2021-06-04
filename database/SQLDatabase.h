@@ -20,11 +20,11 @@ private:
     void createTable();
 
 public:
-    void insertSpace(unsigned int spaceID, std::string section) override;
+    void insertSpace(unsigned int spaceID, const std::string &section) override;
 
     std::unique_ptr<std::vector<SpaceState>> fetchAllSpaceStates() override;
 
-    SpaceState getStateForSpace(unsigned int spaceID) override;
+    std::optional<SpaceState> getStateForSpace(unsigned int spaceID) override;
 
     std::unique_ptr<std::vector<SpaceState>> getExpiredReserveStates() override;
 
@@ -34,15 +34,17 @@ public:
      * @param state
      * @param licensePlate
      */
-    SpaceState updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates state, std::string licensePlate) override;
+    std::optional<SpaceState> updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates state, const std::string &licensePlate) override;
 
-    SpaceState getReservationForLicensePlate(std::string licensePlate) override;
+    bool updateSpacePlate(unsigned int spaceID, const std::string  &licensePlate) override;
 
-    SpaceState getSpaceOccupiedByLicensePlate(std::string licensePlate) override;
+    std::optional<SpaceState> getReservationForLicensePlate(const std::string &licensePlate) override;
 
-    bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) override;
+    std::optional<SpaceState> getSpaceOccupiedByLicensePlate(const std::string &licensePlate) override;
 
-    bool cancelReservationsFor(std::string licensePlate) override;
+    bool attemptToReserveSpot(unsigned int spaceID, const std::string &licensePlate) override;
+
+    bool cancelReservationsFor(const std::string &licensePlate) override;
 
     bool cancelReservationForSpot(int spaceID) override;
 

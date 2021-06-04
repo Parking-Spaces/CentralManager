@@ -3,6 +3,7 @@
 
 #include "parkingspacesimpl.h"
 #include "parkingnotifications.h"
+#include <map>
 #include <thread>
 
 #define SERVER_IP "0.0.0.0:50051"
@@ -19,12 +20,16 @@ private:
 
     std::thread notifThread, expirationThread;
 
+    std::map<int, std::string> pendingIncomingPlates;
+
     std::unique_ptr<grpc::Server> server;
 
 public:
     ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<ArduinoConnection> connection);
 
     void receiveParkingSpaceNotification(int parkingSpace, bool occupied);
+
+    void receiveLicensePlate(const int &spaceID, const std::string &plate);
 
     void wait();
 

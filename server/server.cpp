@@ -1,7 +1,12 @@
 #include "server.h"
 #include <thread>
+#include <fstream>
+#include <sstream>
 
 #define PERIOD 5
+#define CERT_STORAGE "./ssl/"
+#define PRIV_KEY "service.key"
+#define CERT_FILE "service.pem"
 
 using namespace parkingspaces;
 
@@ -41,50 +46,6 @@ void startNotificationServer(ParkingNotificationsImpl *notif) {
     }
 }
 
-ParkingServer::ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<ArduinoConnection> conn) :
-        connection(conn),
-        db(db),
-        notifications(
-                std::make_shared<ParkingNotificationsImpl>()),
-        spaces(std::make_shared<ParkingSpacesImpl>(db,
-                                                   notifications,
-                                                   conn)) {
-
-    grpc::ServerBuilder serverBuilder;
-
-    /*
-      std::ifstream parserequestfile("/root/cgangwar/certs/key.pem");
-      std::stringstream buffer;
-      buffer << parserequestfile.rdbuf();
-      std::string key = buffer.str();
-
-      std::ifstream requestfile("/root/cgangwar/certs/cert.pem");
-      buffer << requestfile.rdbuf();
-      std::string cert = buffer.str();
-
-      grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key, cert};
-
-      grpc::SslServerCredentialsOptions ssl_opts;
-      ssl_opts.pem_root_certs = "";
-      ssl_opts.pem_key_cert_pairs.push_back(pkcp);
-   */
-
-    // Listen on the given address without any authentication mechanism.
-    serverBuilder.AddListeningPort(SERVER_IP, grpc::InsecureServerCredentials());
-
-    serverBuilder.RegisterService(spaces.get());
-
-    notifications->registerService(serverBuilder);
-
-    server = serverBuilder.BuildAndStart();
-
-    startNotifications();
-
-    startExpirations();
-
-    std::cout << "Server listening on IP: " << SERVER_IP << std::endl;
-}
-
 void ParkingServer::wait() {
     server->Wait();
 }
@@ -105,38 +66,155 @@ void ParkingServer::receiveParkingSpaceNotification(int spaceID, bool occupied) 
     auto space = this->db->updateSpaceState(spaceID, occupied ? SpaceStates::OCCUPIED : SpaceStates::FREE,
                                             std::string());
 
-    if (space.getSpaceId() < 0) {
+    if (!space) {
 
         std::cout << "Inserting space..." << std::endl;
 
         this->db->insertSpace(spaceID, "A");
 
         receiveParkingSpaceNotification(spaceID, occupied);
+
         return;
     }
 
     ParkingSpaceStatus status;
 
     status.set_spaceid(spaceID);
-    status.set_spacesection(space.getSection());
+    status.set_spacesection(space->getSection());
     status.set_spacestate(occupied ? SpaceStates::OCCUPIED : SpaceStates::FREE);
 
     this->notifications->publishParkingSpaceUpdate(status);
 
-    if (space.getState() == RESERVED && occupied) {
+    if (occupied) {
+        std::cout << "sending license plate read request" << std::endl;
+
+        PlateReadRequest req;
+
+        req.set_spaceid(spaceID);
+
+        this->pendingIncomingPlates.insert({spaceID, std::string(space->getOccupant())});
+
+        auto sent = this->notifications->sendPlateReadRequest(req);
+
+        if (sent->size() <= 0) {
+            receiveLicensePlate(spaceID, "");
+        } else {
+            for (const auto &sub : *sent) {
+                RPCContextBase *contextBase = sub;
+
+                //Read the result
+                dynamic_cast<Readable<parkingspaces::PlateReaderResult> *>(contextBase)->readMessage();
+            }
+        }
+    }
+
+    if (space->getState() == RESERVED && occupied) {
         ReserveStatus resStatus;
 
         resStatus.set_spaceid(spaceID);
-        //TODO: If we add a license plate reader, make sure that it's the correct parking space
-        resStatus.set_state(ReservationState::RESERVE_CONCLUDED);
+        resStatus.set_state(ReservationState::RESERVE_OCCUPIED);
 
         this->notifications->publishReservationUpdate(resStatus);
-
-        this->notifications->endReservationStreamsFor(resStatus);
 
         this->connection->notifyArduino(spaceID, false);
     }
 
     //We don't have to account for any other state as if the previous state is reserved, then it can only go to occupied
     //(Because states can only go to free from the occupied state)
+}
+
+void ParkingServer::receiveLicensePlate(const int &spaceID, const std::string &plate) {
+
+    auto node = this->pendingIncomingPlates.find(spaceID);
+
+    this->pendingIncomingPlates.erase(node);
+
+    if (this->db->updateSpacePlate(spaceID, plate)) {
+
+        if ((node->second) == plate) {
+
+            ReserveStatus resStatus;
+
+            resStatus.set_spaceid(spaceID);
+            resStatus.set_state(ReservationState::RESERVE_CONCLUDED);
+
+            this->notifications->publishReservationUpdate(resStatus);
+            this->notifications->endReservationStreamsFor(resStatus);
+
+            return;
+        }
+    } else {
+
+        auto reserve = this->db->getReservationForLicensePlate(plate);
+
+        if (reserve) {
+
+            ReserveStatus cancelled;
+
+            this->db->cancelReservationsFor(plate);
+
+            cancelled.set_spaceid(reserve->getSpaceId());
+            cancelled.set_state(ReservationState::RESERVE_CANCELLED_PARKED_SOMEWHERE_ELSE);
+
+            this->notifications->publishReservationUpdate(cancelled);
+            this->notifications->endReservationStreamsFor(cancelled);
+
+            this->db->updateSpacePlate(spaceID, plate);
+
+            this->connection->notifyArduino(reserve->getSpaceId(), false);
+        }
+    }
+
+    ReserveStatus resStatus;
+
+    resStatus.set_spaceid(spaceID);
+    resStatus.set_state(ReservationState::RESERVE_CANCELLED_SPACE_OCCUPIED);
+
+    this->notifications->publishReservationUpdate(resStatus);
+    this->notifications->endReservationStreamsFor(resStatus);
+}
+
+
+ParkingServer::ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<ArduinoConnection> conn) :
+        connection(conn),
+        db(db),
+        pendingIncomingPlates(),
+        notifications(
+                std::make_shared<ParkingNotificationsImpl>(this)),
+        spaces(std::make_shared<ParkingSpacesImpl>(db,
+                                                   notifications,
+                                                   conn)) {
+
+    grpc::ServerBuilder serverBuilder;
+
+    std::ifstream parserequestfile(std::string(CERT_STORAGE) + PRIV_KEY);
+    std::stringstream buffer;
+    buffer << parserequestfile.rdbuf();
+    std::string key = buffer.str();
+
+    std::ifstream requestfile(std::string(CERT_STORAGE) + CERT_FILE);
+    buffer << requestfile.rdbuf();
+    std::string cert = buffer.str();
+
+    grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key, cert};
+
+    grpc::SslServerCredentialsOptions ssl_opts;
+    ssl_opts.pem_root_certs = "";
+    ssl_opts.pem_key_cert_pairs.push_back(pkcp);
+
+    // Listen on the given address without any authentication mechanism.
+    serverBuilder.AddListeningPort(SERVER_IP,
+            /*grpc::SslServerCredentials(ssl_opts)*/ grpc::InsecureServerCredentials());
+
+    serverBuilder.RegisterService(spaces.get());
+
+    notifications->registerService(serverBuilder);
+
+    server = serverBuilder.BuildAndStart();
+
+    startNotifications();
+
+    startExpirations();
+
+    std::cout << "Server listening on IP: " << SERVER_IP << std::endl;
 }

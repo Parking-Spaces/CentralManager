@@ -20,7 +20,7 @@ FetchContent_Declare(
         # v1.25.0, v1.26.0 etc..
         # For the purpose of testing, we override the tag used to the commit
         # that's currently under test.
-        GIT_TAG v1.37.1)
+        GIT_TAG v1.38.0)
 
 set(FETCHCONTENT_QUIET OFF)
 FetchContent_MakeAvailable(grpc)

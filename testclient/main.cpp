@@ -4,6 +4,14 @@
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
+#include "grpc/grpc.h"
+#include <fstream>
+#include <sstream>
+
+#define CERT_STORAGE "./ssl/"
+#define PRIV_KEY "service.key"
+#define CERT_FILE "service.pem"
+
 
 class Client {
 
@@ -40,7 +48,7 @@ public:
         reader->Finish();
     }
 
-    void testReserve( ) {
+    void testReserve() {
         grpc::ClientContext context;
 
         parkingspaces::ParkingSpaceReservation reservation;
@@ -52,7 +60,8 @@ public:
 
         stubp_->attemptToReserveSpace(&context, reservation, &reservationResponse);
 
-        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse.response() << std::endl;
+        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse.response()
+                  << std::endl;
 
         grpc::ClientContext context2;
 
@@ -65,15 +74,38 @@ public:
 
         stubp_->attemptToReserveSpace(&context2, reservation2, &reservationResponse2);
 
-        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse2.response() << std::endl;
+        std::cout << reservationResponse.spaceid() << " has responded with " << reservationResponse2.response()
+                  << std::endl;
 
         grpc::ClientContext context3;
 
         parkingspaces::ReservationCancelResponse cancelResponse;
 
-        stubp_->cancelSpaceReservation(&context3, reservation, &cancelResponse);
+        //stubp_->cancelSpaceReservation(&context3, cancelResponse, &cancelResponse);
 
         std::cout << "Cancelling response:" << cancelResponse.cancelstate() << std::endl;
+    }
+
+    void testPlateReader() {
+
+        using namespace parkingspaces;
+
+        grpc::ClientContext context;
+
+        auto writers = stub_->registerPlateReader(
+                &context);
+
+        PlateReaderResult result;
+
+        result.set_spaceid(1);
+
+        writers->Write(result);
+
+        PlateReadRequest req;
+
+        writers->Read(&req);
+
+        std::cout << "Read " << req.spaceid() << std::endl;
     }
 
 private:
@@ -82,10 +114,10 @@ private:
 };
 
 int main(int argc, char **argv) {
+
     auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
 
     Client cl(channel);
 
-
-    cl.testReserve();
+    cl.testPlateReader();
 }

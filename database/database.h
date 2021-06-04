@@ -48,7 +48,7 @@ public:
      * @param spaceID
      * @param section
      */
-    virtual void insertSpace(unsigned int spaceID, std::string section) = 0;
+    virtual void insertSpace(unsigned int spaceID, const std::string &section) = 0;
 
     /**
      * Fetch the all the space states
@@ -61,7 +61,7 @@ public:
      * @param spaceID
      * @return
      */
-    virtual SpaceState getStateForSpace(unsigned int spaceID) = 0;
+    virtual std::optional<SpaceState> getStateForSpace(unsigned int spaceID) = 0;
 
     virtual std::unique_ptr<std::vector<SpaceState>> getExpiredReserveStates() = 0;
 
@@ -73,21 +73,23 @@ public:
      * @param licensePlate
      * @return
      */
-    virtual SpaceState updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates state, std::string licensePlate) = 0;
+    virtual std::optional<SpaceState> updateSpaceState(unsigned int spaceID, parkingspaces::SpaceStates state, const std::string &licensePlate) = 0;
+
+    virtual bool updateSpacePlate(unsigned int spaceID, const std::string &licensePlate) = 0;
 
     /**
      * Get the reservation for a license plate
      * @param licensePlate
      * @return
      */
-    virtual SpaceState getReservationForLicensePlate(std::string licensePlate) = 0;
+    virtual std::optional<SpaceState> getReservationForLicensePlate(const std::string &licensePlate) = 0;
 
     /**
      * Get the space occupied by a license plate
      * @param licensePlate
      * @return
      */
-    virtual SpaceState getSpaceOccupiedByLicensePlate(std::string licensePlate) = 0;
+    virtual std::optional<SpaceState> getSpaceOccupiedByLicensePlate(const std::string &licensePlate) = 0;
 
     /**
      * Attempt to reserve a spot for a given license plate
@@ -95,14 +97,14 @@ public:
      * @param licensePlate
      * @return
      */
-    virtual bool attemptToReserveSpot(unsigned int spaceID, std::string licensePlate) = 0;
+    virtual bool attemptToReserveSpot(unsigned int spaceID, const std::string &licensePlate) = 0;
 
     /**
      * Cancel the reservation for a given license plate
      * @param licensePlate
      * @return
      */
-    virtual bool cancelReservationsFor(std::string licensePlate) = 0;
+    virtual bool cancelReservationsFor(const std::string &licensePlate) = 0;
 
     virtual bool cancelReservationForSpot(int spaceID) = 0;
 
