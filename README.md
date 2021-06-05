@@ -8,9 +8,11 @@ Then create the build directory, make files and compile using:
 
 ```bash
 $ mkdir build && cd build 
-
+``
+```bash
 $ cmake ..
-
+```
+```bash
 $ make
 ```
 
