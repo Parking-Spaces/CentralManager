@@ -1,4 +1,3 @@
-
 #include "firebase_notifications.h"
 #include <iostream>
 #include <list>

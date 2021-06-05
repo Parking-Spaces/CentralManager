@@ -63,7 +63,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 pkg_check_modules(CURLPP REQUIRED curlpp)
 
 FetchContent_Declare(json
-        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
         GIT_TAG v3.7.3)
 
 FetchContent_GetProperties(json)
