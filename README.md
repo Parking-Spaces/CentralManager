@@ -2,7 +2,7 @@
 It´s required to have the proto file in: ../CentralProto/parkingspaces.proto (Just clone the proto repo in the parent folder to this project)
 
 
-## Install curlpp with:
+## Install curlpp and sqlite3 with:
 sudo apt-get install pkg-config libcurlpp-dev libcurl4-openssl-dev sqlite3 libsqlite3-dev
 
 ## Then create the build directory, make files and compile using:
