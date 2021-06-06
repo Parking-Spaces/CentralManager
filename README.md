@@ -17,4 +17,4 @@ $ cmake ..
 $ make
 ```
 
-### Then you can run the server which should be in the binary named Raspberry
+#### Then you can run the server which should be in the binary named Raspberry
