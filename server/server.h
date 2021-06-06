@@ -31,6 +31,8 @@ public:
 
     void receiveLicensePlate(const int &spaceID, const std::string &plate);
 
+    void receiveTemperatureUpdate(int parkingSpace, int temperature);
+
     void wait();
 
 private:

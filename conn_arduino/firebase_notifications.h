@@ -17,6 +17,8 @@ public:
 
     void receiveSpaceUpdate(int spaceID, bool occupied) override;
 
+    void receiveTemperatureUpdate(int spaceID, int temperature) override;
+
 private:
     void subscribe();
 };

@@ -7,6 +7,7 @@
 #define CERT_STORAGE "./ssl/"
 #define PRIV_KEY "service.key"
 #define CERT_FILE "service.pem"
+#define TEMP_LIMIT 50
 
 using namespace parkingspaces;
 
@@ -174,6 +175,29 @@ void ParkingServer::receiveLicensePlate(const int &spaceID, const std::string &p
     this->notifications->endReservationStreamsFor(resStatus);
 }
 
+void ParkingServer::receiveTemperatureUpdate(int parkingSpace, int temperature) {
+
+    std::cout << "FIRE ALARM TEST " << std::endl;
+    if (temperature > TEMP_LIMIT) {
+
+        auto optState = this->db->getStateForSpace(parkingSpace);
+
+        std::cout << "FIRE ALARM " << std::endl;
+
+        ParkingSpaceStatus status;
+
+        if (optState) {
+            status.set_spacesection((*optState).getSection());
+        }
+
+        status.set_spaceid(parkingSpace);
+
+        status.set_firealarm(true);
+
+        this->notifications->publishParkingSpaceUpdate(status);
+    }
+
+}
 
 ParkingServer::ParkingServer(std::shared_ptr<Database> db, std::shared_ptr<ArduinoConnection> conn) :
         connection(conn),

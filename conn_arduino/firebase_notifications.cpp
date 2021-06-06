@@ -18,6 +18,7 @@
 #define PATH "path"
 #define DATA "data"
 #define OCCUPIED "occupied"
+#define TEMPERATURE "temp"
 #define RESERVED "reserved"
 
 static ArduinoReceiver *receiver = nullptr;
@@ -28,8 +29,6 @@ using namespace curlpp::options;
 void parseArray(const json &array) {
 
     int current = 0;
-
-    std::cout << array.dump() << std::endl;
 
     for (auto it = array.begin(); it != array.end(); it++) {
 
@@ -43,6 +42,14 @@ void parseArray(const json &array) {
 
             } else {
                 std::cout << occupied.type_name() << std::endl;
+            }
+
+            if (it->contains(TEMPERATURE)) {
+                auto temp = (*it)[TEMPERATURE];
+
+                if (temp.is_number_integer()) {
+                    receiver->receiveTemperatureUpdate(current, temp.get<int>());
+                }
             }
         }
 
@@ -63,6 +70,12 @@ void parseObj(const json &obj) {
         bool occupied = value[OCCUPIED];
 
         receiver->receiveSpaceUpdate(spaceID, occupied);
+
+        if (value.contains(TEMPERATURE)) {
+            int temp = value[TEMPERATURE];
+
+            receiver->receiveTemperatureUpdate(spaceID, temp);
+        }
     }
 
 }
@@ -101,7 +114,16 @@ void parsePathAndData(const std::string &path, const json &data) {
             if (occupied.is_boolean()) {
                 receiver->receiveSpaceUpdate(spaceID, occupied.get<bool>());
             }
+        } else if (data.contains(TEMPERATURE)) {
+
+            json currentTemp = data[TEMPERATURE];
+
+            if (currentTemp.is_number_integer()) {
+                receiver->receiveTemperatureUpdate(spaceID, currentTemp.get<int>());
+            }
         }
+    } else if (data.is_number_integer()) {
+        receiver->receiveTemperatureUpdate(spaceID, data.get<int>());
     }
 }
 
@@ -202,6 +224,10 @@ void FirebaseReceiver::subscribe() {
 
 void FirebaseReceiver::receiveSpaceUpdate(int spaceID, bool occupied) {
     this->server->receiveParkingSpaceNotification(spaceID, occupied);
+}
+
+void FirebaseReceiver::receiveTemperatureUpdate(int spaceID, int temperature) {
+    this->server->receiveTemperatureUpdate(spaceID, temperature);
 }
 
 FirebaseNotifications::FirebaseNotifications() {}
